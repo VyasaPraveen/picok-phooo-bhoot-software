@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- WPF is enabled only to reference System.Printing (print queue / job status). -->
+    <UseWPF>true</UseWPF>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <RootNamespace>Epixs.PrintBridge</RootNamespace>
+    <AssemblyName>EpixsPrintBridge</AssemblyName>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <ApplicationVisualStyles>true</ApplicationVisualStyles>
+    <Version>1.0.0</Version>
+    <Product>EPIXS Print Bridge</Product>
+    <Company>EPIXS</Company>
+    <AssemblyTitle>EPIXS Print Bridge</AssemblyTitle>
+    <SatelliteResourceLanguages>en</SatelliteResourceLanguages>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Assets\app.ico" LogicalName="Epixs.PrintBridge.app.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Remove="dist\**" />
+    <None Remove="dist\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="QRCoder" Version="1.8.0" />
+  </ItemGroup>
+
+</Project>

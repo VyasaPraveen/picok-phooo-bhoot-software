@@ -1,0 +1,16 @@
+# Build outputs
+kiosk_app/build/
+print_bridge/bin/
+print_bridge/obj/
+# Published bridge exe (~175 MB, over GitHub's file limit) - rebuild with dotnet publish (see docs/SETUP.md)
+print_bridge/dist/
+
+# Editor / tool folders
+.qodo/
+.vs/
+.vscode/
+.idea/
+*.user
+
+# Tablet screenshot showing the device IMEI and serial number - not for a public repo
+Tab1.jpeg

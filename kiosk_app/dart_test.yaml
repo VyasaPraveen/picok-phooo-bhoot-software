@@ -1,0 +1,3 @@
+tags:
+  e2e:
+    description: Needs a running EPIXS Print Bridge (BRIDGE_E2E=1).
