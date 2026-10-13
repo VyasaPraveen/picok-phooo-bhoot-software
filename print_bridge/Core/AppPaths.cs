@@ -2,9 +2,20 @@ namespace Epixs.PrintBridge.Core;
 
 public static class AppPaths
 {
-    /// <summary>%ProgramData%\EPIXS\PrintBridge – settings and logs.</summary>
-    public static string DataDir { get; } = Path.Combine(
+    public const string DataDirArgument = "--data-dir=";
+
+    /// <summary>%ProgramData%\EPIXS\PrintBridge – settings and logs (or the folder given with --data-dir=).</summary>
+    public static string DataDir { get; private set; } = Path.Combine(
         Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "EPIXS", "PrintBridge");
+
+    /// <summary>Developer/testing option: keeps settings and logs in another folder. Call before anything is logged.</summary>
+    public static void UseDataDirFromArgs(IEnumerable<string> args)
+    {
+        var arg = args.LastOrDefault(a => a.StartsWith(DataDirArgument, StringComparison.OrdinalIgnoreCase));
+        var dir = arg?[DataDirArgument.Length..].Trim().Trim('"');
+        if (!string.IsNullOrEmpty(dir))
+            DataDir = Path.GetFullPath(dir);
+    }
 
     public static string SettingsFile => Path.Combine(DataDir, "settings.json");
 

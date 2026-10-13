@@ -26,6 +26,7 @@ internal static class Program
         using var showEvent = new EventWaitHandle(false, EventResetMode.AutoReset, ShowEventName);
 
         ApplicationConfiguration.Initialize();
+        AppPaths.UseDataDirFromArgs(args);
         AppPaths.EnsureCreated();
         AppPaths.PurgeIncoming();
         Log.DeleteOldLogs();

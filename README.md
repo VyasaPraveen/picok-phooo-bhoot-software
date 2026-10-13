@@ -11,10 +11,19 @@ Customers use the booth like this:
 5. Smile for the camera.
 6. Get a print with the client's brand logo in about 12 seconds.
 
+> **Version 2 (current): web app.** The booth now runs as a PWA on Firebase:
+> - Kiosk: https://picok-booth.web.app
+> - Admin dashboard: https://picok-booth.web.app/admin
+>
+> The source is in [`web/`](web/). Setup is in [docs/WEB_SETUP.md](docs/WEB_SETUP.md) and the cloud
+> contract in [docs/CLOUD_API.md](docs/CLOUD_API.md). The Android app in `kiosk_app/` is the earlier
+> version 1. It still works with the Print Bridge over the local network.
+
 | Folder | What it is | Runs on |
 | --- | --- | --- |
+| [`web/`](web/) | **PWA kiosk + admin dashboard** (React + TypeScript, Firebase Realtime Database) | Galaxy Tab (Chrome) + any browser |
 | [`kiosk_app/`](kiosk_app/) | Flutter kiosk app: the customer flow, camera, templates, UPI payment and the admin panel | Samsung Galaxy Tab A11+ (Android 16) |
-| [`print_bridge/`](print_bridge/) | EPIXS Print Bridge: a LAN print server for the DNP driver, plus Razorpay QR payments | Windows 10/11 PC attached to the DNP DS-RX1HS |
+| [`print_bridge/`](print_bridge/) | EPIXS Print Bridge: the DNP print server and Razorpay QR payments, over the cloud (v1.1) or the LAN | Windows 10/11 PC attached to the DNP DS-RX1HS |
 | [`template_cloud/`](template_cloud/) | Remote template packs (festival and event) on Firebase Hosting | Firebase Hosting |
 | [`docs/`](docs/) | [Setup and go-live guide](docs/SETUP.md) and the [Bridge API contract](docs/BRIDGE_API.md) | — |
 

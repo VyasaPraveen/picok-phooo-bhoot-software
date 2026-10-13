@@ -9,7 +9,8 @@ The payment gateway secret stays on this PC and never reaches the tablet.
 - Logs: `C:\ProgramData\EPIXS\PrintBridge\logs\bridge-yyyyMMdd.log`, one file per day, kept for 60 days
 - Photos waiting to print are kept in `%LOCALAPPDATA%\EPIXS\PrintBridge\incoming`. Each one is deleted
   as soon as its job finishes or fails. Anything left over after a crash is deleted at the next start.
-- The API contract for the tablet is in `../docs/BRIDGE_API.md`.
+- The API contract for the tablet is in `../docs/BRIDGE_API.md`. The cloud contract for the web (PWA) kiosk
+  is in `../docs/CLOUD_API.md` (see section 8).
 
 ---
 
@@ -136,6 +137,55 @@ Razorpay dashboard.
   done, the Windows network is Private, and the address and key match the Status tab.
 - Logs: **Settings → Open settings and logs folder**.
 
+## 8. Cloud mode (PWA kiosk)
+
+When the kiosk runs as the Picok **web app** in the tablet's browser, it cannot reach this PC over the local
+network. Instead, print jobs and UPI payment requests travel through the booth's Firebase Realtime Database,
+and the bridge picks them up over the internet. The printer profiles, payment provider and logs work exactly
+as above. A tablet using the local network (sections 4–5) keeps working at the same time.
+
+The PC needs an internet connection. No firewall change is needed, because the bridge only connects outwards.
+
+### Pair the PC with the booth (once)
+1. Open the **Cloud** tab and click **Pair with booth**. A big **6-digit code** appears, with the status
+   *Waiting for approval*.
+2. On any device, open the admin dashboard and go to **Devices → Pair**. Type the code and choose the booth.
+3. The Cloud tab changes by itself to **Connected to booth …**. The Status tab shows the same line.
+
+The PC stays paired after restarts. It reports to the dashboard every 30 seconds. If it has not reported for
+90 seconds, the kiosk shows the bridge as offline.
+
+- **Unpair** stops cloud mode on this PC. Also remove the PC in the dashboard (Devices).
+- If the PC is removed in the dashboard, the Cloud tab shows a new pairing code by itself.
+- **Reconnect** restarts the connection, for example after a long internet outage. The bridge also
+  reconnects on its own.
+
+### What happens to a photo
+- The kiosk encrypts every photo for this PC only (RSA-OAEP + AES-256-GCM). Firebase only ever stores
+  ciphertext. The private key is created on this PC and saved encrypted with Windows (DPAPI), like the
+  Razorpay secret.
+- As soon as the bridge has decrypted a photo, it deletes it from Firebase and prints it like a local job.
+  The photo on this PC is deleted when the job finishes.
+- A job that is more than **15 minutes** old when the bridge sees it (for example, because the PC was
+  switched off) is not printed. It is marked *Expired* so the kiosk can tell the customer.
+- A job is never printed twice, also not after a restart.
+
+### Payments
+The kiosk asks for a UPI QR through Firebase, and the bridge creates it with the provider chosen on the
+**Payments** tab, then reports *paid*, *expired* or *closed* back. The provider must be **Simulator** or
+**Razorpay**. With provider *None*, the kiosk shows "Payments are not set up on the print PC". A QR that was
+shown before the bridge restarted is still checked after the restart, so a late payment is not lost.
+
+### Advanced
+The **Advanced** button on the Cloud tab shows the Firebase database URL and Web API key. Change them only
+when moving to the client's own Firebase project. Changing them signs the PC out, and you must pair it again.
+The two emulator fields are for developers testing with the local Firebase emulators. Leave them empty.
+
+### Troubleshooting
+- *Error – Firebase refused access*: the PC is no longer paired in the dashboard. Pair it again.
+- *Cannot reach the cloud database*: check the internet connection. The bridge retries on its own.
+- Every cloud job, payment and connection change is written to the log with the prefix `Cloud:`.
+
 ---
 
 ## For developers
@@ -155,4 +205,10 @@ The code is split into these folders:
 | `Printing/` | Profile resolution, DEVMODE capture/restore (`DevModeHelper`), borderless rendering (`PhotoPrinter`), spooler tracking, queue status, test sheet, job worker |
 | `Payments/` | `IPaymentProvider`, `RazorpayProvider`, `SimulatorProvider`, `PaymentService` (sessions, rate limiting, expiry) |
 | `UI/` | WinForms window, tabs, tray |
+| `Cloud/` | Cloud mode: anonymous Firebase Auth over REST (`CloudAuth`), RTDB REST + SSE streams (`RtdbClient`, `RtdbMirror`), job decryption (`JobCrypto`), and `CloudConnector` (pairing, jobs, payments, test prints, heartbeat) |
 | `Core/` | Settings (JSON + DPAPI), logging, pairing key, paths, network, Windows integration |
+
+Testing against the local Firebase emulators: start them from `../web` with
+`firebase emulators:start --only auth,database --project picok-booth`. Then set *Auth emulator* to
+`127.0.0.1:9099` and *Database emulator* to `127.0.0.1:9000` on the Cloud tab (Advanced). To keep test settings
+and logs out of `%ProgramData%`, start the bridge with `--data-dir=<folder>`.

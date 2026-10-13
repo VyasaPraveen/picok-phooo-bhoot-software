@@ -14,6 +14,7 @@ internal sealed class StatusTab : TabPage, IRefreshable
     private readonly Label _payments;
     private readonly Label _jobsToday;
     private readonly Label _discovery;
+    private readonly Label _cloud;
     private readonly ComboBox _media;
     private readonly ComboBox _finish;
     private readonly Label _testResult;
@@ -45,6 +46,7 @@ internal sealed class StatusTab : TabPage, IRefreshable
         _printer = AddRow(grid, "Printer");
         _payments = AddRow(grid, "Payments");
         _discovery = AddRow(grid, "Discovery");
+        _cloud = AddRow(grid, "Cloud (web kiosk)");
         _jobsToday = AddRow(grid, "Jobs today");
         root.Controls.Add(grid);
 
@@ -90,6 +92,14 @@ internal sealed class StatusTab : TabPage, IRefreshable
             SetState(_discovery, $"On (UDP {AppInfo.DiscoveryPort}) – the tablet can find this PC automatically", UiKit.Good);
         else
             SetState(_discovery, _services.Discovery.LastError ?? "Not running", UiKit.Bad);
+
+        var cloud = _services.Cloud.Status;
+        var (cloudText, cloudColor) = CloudTab.Describe(cloud);
+        if (cloud.Phase == Cloud.CloudPhase.Pairing && cloud.PairingCode is not null)
+            cloudText += $" – pairing code {cloud.PairingCode} (see the Cloud tab)";
+        else if (cloud.Error is not null)
+            cloudText += $" – {cloud.Error}";
+        SetState(_cloud, cloudText, cloudColor);
 
         _jobsToday.Text = _services.Jobs.JobsToday().ToString();
         RefreshPrinterAsync();

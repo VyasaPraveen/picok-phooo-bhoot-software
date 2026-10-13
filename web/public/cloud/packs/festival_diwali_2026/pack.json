@@ -1,0 +1,38 @@
+{
+  "id": "festival_diwali_2026",
+  "name": "Diwali 2026",
+  "version": 1,
+  "activeFrom": "2026-10-28",
+  "activeTo": "2026-11-12",
+  "fonts": [],
+  "templates": [
+    {
+      "id": "diwali26_diyas_2",
+      "name": "Festival of Lights",
+      "category": "festival",
+      "description": "Golden diyas and rangoli dots on deep maroon.",
+      "size": "4x6",
+      "filter": "warm_film",
+      "background": { "gradient": { "colors": ["#3A0610", "#6B0F1A", "#3A0610"], "stops": [0, 0.5, 1] } },
+      "layers": [
+        { "type": "dots", "x": 0, "y": 0, "w": 1200, "h": 1600, "spacing": 30, "rMax": 4, "rMin": 0, "color": "#55FFC94A", "direction": "edges" },
+        { "type": "starburst", "cx": 600, "cy": 150, "points": 12, "rOuter": 120, "rInner": 60, "jitter": 0, "color": "#33FFC94A" },
+        { "type": "text", "text": "Happy Diwali", "font": "Shrikhand", "size": 120, "color": "#FFC94A", "x": 80, "y": 60, "w": 1040,
+          "glow": { "color": "#FF8A1F", "blur": 14 } },
+        { "type": "text", "text": "{event}", "fallback": "Shubh Deepavali", "font": "Poppins", "weight": 600, "size": 40, "color": "#FFE6A8",
+          "letterSpacing": 4, "uppercase": true, "x": 100, "y": 232, "w": 1000 },
+        { "type": "circle", "cx": 160, "cy": 1530, "r": 46, "color": "#C4691B" },
+        { "type": "polygon", "points": [[140, 1488], [160, 1430], [180, 1488]], "color": "#FFD21F" },
+        { "type": "circle", "cx": 600, "cy": 1530, "r": 46, "color": "#C4691B" },
+        { "type": "polygon", "points": [[580, 1488], [600, 1430], [620, 1488]], "color": "#FFD21F" },
+        { "type": "circle", "cx": 1040, "cy": 1530, "r": 46, "color": "#C4691B" },
+        { "type": "polygon", "points": [[1020, 1488], [1040, 1430], [1060, 1488]], "color": "#FFD21F" }
+      ],
+      "slots": [
+        { "x": 90, "y": 310, "w": 1020, "h": 540, "radius": 24, "borderWidth": 10, "borderColor": "#FFC94A", "shadow": true },
+        { "x": 90, "y": 880, "w": 1020, "h": 540, "radius": 24, "borderWidth": 10, "borderColor": "#FFC94A", "shadow": true }
+      ],
+      "logo": { "x": 0, "y": 1600, "w": 1200, "h": 200, "bg": "#2A040B", "textColor": "#FFC94A" }
+    }
+  ]
+}

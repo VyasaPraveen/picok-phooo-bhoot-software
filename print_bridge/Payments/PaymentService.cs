@@ -98,6 +98,30 @@ public sealed class PaymentService : IDisposable
         return session;
     }
 
+    /// <summary>
+    /// Re-attaches a QR created before the bridge restarted (cloud mode keeps its id in the database), so
+    /// its payment can still be checked and closed. Returns null when the current provider did not create it.
+    /// </summary>
+    public QrSession? Resume(string qrId, string orderId, long amount, string description, DateTimeOffset expiresAt, string? upiString)
+    {
+        if (Find(qrId) is { } existing)
+            return existing;
+
+        IPaymentProvider? provider;
+        lock (_providerGate)
+            provider = _provider;
+        var simulatorQr = qrId.StartsWith("qr_sim_", StringComparison.Ordinal);
+        if (provider is null || (provider is SimulatorProvider) != simulatorQr)
+            return null;
+
+        var image = upiString is null ? [] : QrImage.Png(upiString);
+        var session = new QrSession(provider, qrId, orderId, amount, description, expiresAt, upiString, image);
+        session = _sessions.GetOrAdd(qrId, session);
+        Log.Info($"QR resumed after restart: {qrId} ({provider.Name}) order {orderId}, amount {FormatRupees(amount)}, expires {expiresAt:O}");
+        SessionsChanged?.Invoke();
+        return session;
+    }
+
     public QrSession? Find(string qrId) => _sessions.TryGetValue(qrId, out var s) ? s : null;
 
     /// <summary>Returns the session, refreshing it from the gateway at most once every 2 s.</summary>

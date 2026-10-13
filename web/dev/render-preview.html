@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Render Preview</title>
+    <style>
+      :root {
+        --bg: #f3f3f6;
+        --fg: #16161d;
+        --muted: #5b5b6b;
+        --card: #ffffff;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #101016;
+          --fg: #ececf2;
+          --muted: #9a9aab;
+          --card: #1a1a22;
+        }
+      }
+      body {
+        margin: 0;
+        padding: 16px;
+        background: var(--bg);
+        color: var(--fg);
+        font: 14px/1.4 system-ui, sans-serif;
+      }
+      h1 {
+        font-size: 18px;
+        margin: 0 0 8px;
+      }
+      #log {
+        white-space: pre-wrap;
+        font: 12px/1.4 ui-monospace, Consolas, monospace;
+        color: var(--muted);
+        margin: 0 0 12px;
+      }
+      #grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(var(--cell, 280px), 1fr));
+        gap: 12px;
+        align-items: start;
+      }
+      figure {
+        margin: 0;
+        background: var(--card);
+        padding: 6px;
+        border-radius: 8px;
+      }
+      figure img {
+        display: block;
+        width: 100%;
+        height: auto;
+      }
+      figcaption {
+        font-size: 11px;
+        color: var(--muted);
+        margin-top: 4px;
+        overflow-wrap: anywhere;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Template renderer preview</h1>
+    <pre id="log" aria-live="polite">Rendering…</pre>
+    <div id="grid"></div>
+    <script type="module" src="./render-preview.ts"></script>
+  </body>
+</html>

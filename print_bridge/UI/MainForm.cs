@@ -21,6 +21,7 @@ internal sealed class MainForm : Form
 
         _tabs = new TabControl { Dock = DockStyle.Fill, Padding = new Point(14, 6) };
         _tabs.TabPages.Add(new StatusTab(services));
+        _tabs.TabPages.Add(new CloudTab(services));
         _tabs.TabPages.Add(new ProfilesTab(services));
         _tabs.TabPages.Add(new PaymentsTab(services));
         _tabs.TabPages.Add(new JobsTab(services));
@@ -33,6 +34,7 @@ internal sealed class MainForm : Form
         _refreshTimer.Start();
 
         services.Api.StateChanged += () => RefreshOnUiThread();
+        services.Cloud.StatusChanged += RefreshSelectedOnUiThread;
     }
 
     /// <summary>Raised when the window is closed with the X button (the bridge keeps running).</summary>
@@ -84,6 +86,16 @@ internal sealed class MainForm : Form
             BeginInvoke(RefreshAll);
         else
             RefreshAll();
+    }
+
+    private void RefreshSelectedOnUiThread()
+    {
+        if (IsDisposed || !IsHandleCreated)
+            return;
+        if (InvokeRequired)
+            BeginInvoke(RefreshSelected);
+        else
+            RefreshSelected();
     }
 
     protected override void Dispose(bool disposing)

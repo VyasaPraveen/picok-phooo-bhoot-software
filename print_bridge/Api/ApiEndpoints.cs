@@ -237,7 +237,7 @@ internal static class ApiEndpoints
     }
 
     /// <summary>Returns an error message when the file is not a decodable image of sane size.</summary>
-    private static string? ValidateImage(string path)
+    internal static string? ValidateImage(string path)
     {
         try
         {

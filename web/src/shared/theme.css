@@ -1,0 +1,98 @@
+/* Picok brand: black, white, the rainbow lens ring and peacock green. */
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Regular.ttf') format('truetype'); font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Medium.ttf') format('truetype'); font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-SemiBold.ttf') format('truetype'); font-weight: 600; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-Bold.ttf') format('truetype'); font-weight: 700; font-display: swap; }
+@font-face { font-family: 'Poppins'; src: url('/fonts/Poppins-ExtraBold.ttf') format('truetype'); font-weight: 800; font-display: swap; }
+
+:root {
+  --bg: #07070b;
+  --surface: #14141c;
+  --surface-high: #1e1e2a;
+  --outline: #2e2e3e;
+  --text: #ffffff;
+  --text-dim: #b4b4c6;
+  --cyan: #19d3e6;
+  --blue: #2f6bff;
+  --purple: #8b3dff;
+  --pink: #ff3d9a;
+  --orange: #ff8a1f;
+  --yellow: #ffd21f;
+  --peacock: #12a56e;
+  --danger: #ff5a5f;
+  --rainbow: linear-gradient(90deg, #19d3e6, #2f6bff, #8b3dff, #ff3d9a, #ff8a1f, #ffd21f);
+  --action: linear-gradient(90deg, #2f6bff, #8b3dff, #ff3d9a);
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+html, body, #root { height: 100%; margin: 0; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'Poppins', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -webkit-tap-highlight-color: transparent;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+button:disabled { cursor: not-allowed; opacity: 0.45; }
+:focus-visible { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+  border: 0; border-radius: 999px; padding: 0 28px; min-height: 52px;
+  font-weight: 700; font-size: 18px; color: #fff; text-decoration: none; white-space: nowrap;
+}
+.btn-primary { background: var(--action); box-shadow: 0 8px 24px rgba(255, 61, 154, 0.35); }
+.btn-ghost { background: transparent; border: 2px solid var(--outline); font-weight: 600; }
+.btn-soft { background: var(--surface-high); }
+.btn-danger { background: var(--danger); }
+.btn-success { background: var(--peacock); }
+.btn-sm { min-height: 38px; font-size: 14px; padding: 0 16px; }
+.btn-xl { min-height: 92px; font-size: 32px; padding: 0 48px; }
+
+.card { background: var(--surface); border-radius: 20px; }
+.dim { color: var(--text-dim); }
+.error-text { color: var(--danger); }
+.thumb-placeholder { background: var(--surface-high); width: 100%; border-radius: 4px; }
+
+.spinner {
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 5px solid var(--outline); border-top-color: var(--pink);
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.rainbow-text {
+  background: var(--rainbow); -webkit-background-clip: text; background-clip: text; color: transparent;
+}
+
+input[type='text'], input[type='email'], input[type='password'], input[type='number'], input[type='date'], input[type='url'], select, textarea {
+  background: var(--surface-high); border: 1px solid transparent; border-radius: 12px; padding: 10px 14px; min-height: 44px;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--cyan); outline: none; }
+
+.toggle { position: relative; width: 52px; height: 30px; flex: none; }
+.toggle input { opacity: 0; width: 100%; height: 100%; margin: 0; position: absolute; cursor: pointer; z-index: 1; }
+.toggle span { position: absolute; inset: 0; background: var(--outline); border-radius: 999px; transition: background 0.2s; }
+.toggle span::after {
+  content: ''; position: absolute; left: 4px; top: 4px; width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: transform 0.2s;
+}
+.toggle input:checked + span { background: var(--peacock); }
+.toggle input:checked + span::after { transform: translateX(22px); }
+.toggle input:focus-visible + span { outline: 3px solid var(--cyan); outline-offset: 2px; }
+
+.segmented { display: inline-flex; border: 1px solid var(--outline); border-radius: 999px; overflow: hidden; }
+.segmented button { background: transparent; border: 0; padding: 8px 16px; min-height: 40px; font-weight: 600; }
+.segmented button[aria-pressed='true'] { background: var(--cyan); color: #000; }
+
+.chip { border: 2px solid var(--outline); background: transparent; border-radius: 999px; padding: 8px 18px; font-weight: 600; }
+.chip[aria-pressed='true'] { background: var(--purple); border-color: var(--purple); }
+
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 1000;
+  background: var(--surface-high); color: var(--text); padding: 14px 22px; border-radius: 14px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); max-width: min(90vw, 640px);
+}
+.toast.error { background: var(--danger); }

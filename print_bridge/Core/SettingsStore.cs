@@ -106,6 +106,18 @@ public sealed class SettingsStore
         p.BusinessName = string.IsNullOrWhiteSpace(p.BusinessName) ? "Photo Booth" : p.BusinessName.Trim();
         p.QrTimeoutSeconds = Math.Clamp(p.QrTimeoutSeconds, 60, 3600);
         p.SimulatorAutoPaySeconds = Math.Clamp(p.SimulatorAutoPaySeconds, 0, 3600);
+
+        s.Cloud ??= new CloudSettings();
+        var c = s.Cloud;
+        c.DatabaseUrl = string.IsNullOrWhiteSpace(c.DatabaseUrl) ? CloudSettings.DefaultDatabaseUrl : c.DatabaseUrl.Trim().TrimEnd('/');
+        c.ApiKey = string.IsNullOrWhiteSpace(c.ApiKey) ? CloudSettings.DefaultApiKey : c.ApiKey.Trim();
+        c.AuthEmulatorHost = string.IsNullOrWhiteSpace(c.AuthEmulatorHost) ? null : c.AuthEmulatorHost.Trim();
+        c.DatabaseEmulatorHost = string.IsNullOrWhiteSpace(c.DatabaseEmulatorHost) ? null : c.DatabaseEmulatorHost.Trim();
+        c.Uid = (c.Uid ?? string.Empty).Trim();
+        c.RefreshTokenProtected ??= string.Empty;
+        c.BoothId = (c.BoothId ?? string.Empty).Trim();
+        c.PrivateKeyProtected ??= string.Empty;
+        c.PublicKeySpki ??= string.Empty;
     }
 
     private static BridgeSettings Clone(BridgeSettings s)
@@ -113,6 +125,30 @@ public sealed class SettingsStore
         var clone = JsonSerializer.Deserialize<BridgeSettings>(JsonSerializer.Serialize(s, JsonOptions), JsonOptions)!;
         clone.Profiles = new Dictionary<string, PrintProfile>(clone.Profiles, StringComparer.OrdinalIgnoreCase);
         return clone;
+    }
+
+    /// <summary>
+    /// Copies settings.json to settings.json.{tag}-{time}.bak before a saved secret is replaced
+    /// (e.g. a DPAPI value another Windows user wrote). Returns the copy's path, or null.
+    /// </summary>
+    public string? Backup(string tag)
+    {
+        lock (_gate)
+        {
+            var copy = $"{_path}.{tag}-{DateTime.Now:yyyyMMddHHmmss}.bak";
+            try
+            {
+                if (!File.Exists(_path))
+                    return null;
+                File.Copy(_path, copy, overwrite: true);
+                return copy;
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                Log.Warn($"Could not back up the settings file: {ex.Message}");
+                return null;
+            }
+        }
     }
 
     private static void TryBackupBrokenFile(string path)
