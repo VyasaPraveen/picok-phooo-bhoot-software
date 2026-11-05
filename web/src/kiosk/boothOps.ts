@@ -113,6 +113,11 @@ export function watchLatePayments(boothId: string) {
             payerVpa: p.payerVpa ?? null,
             error: 'Paid after the customer left. Print it from the staff menu.',
           });
+        } else if (o && !o.refundedAt && o.paymentMethod !== 'upi' && p.paymentId) {
+          // Paid twice (e.g. cash taken, then the UPI payment went through): flag it for a refund.
+          await updateOrder(boothId, orderId, {
+            error: `Also paid by UPI (${p.paymentId}${p.payerVpa ? `, ${p.payerVpa}` : ''}). Refund the UPI payment.`,
+          });
         }
         await clearPayment(boothId, orderId);
       })().catch(() => undefined);
@@ -125,7 +130,7 @@ export function watchLatePayments(boothId: string) {
 export async function submitPrintJob(
   boothId: string,
   args: { orderId: string; media: PrintSizeKey; finish: 'gloss' | 'matte'; copies: number; reprint: boolean; file: Blob; publicKey: string },
-): Promise<string> {
+): Promise<{ jobId: string; uploaded: Promise<void> }> {
   const { enc, data } = await encryptForBridge(args.file, args.publicKey);
   const jobRef = push(ref(db, `${base(boothId)}/jobs`));
   // Server time: the print PC expires jobs by Firebase's clock, not the tablet's.
@@ -144,30 +149,65 @@ export async function submitPrintJob(
     mime: args.file.type || 'image/jpeg',
     data,
   };
-  await withTimeout(set(jobRef, job), 60_000, 'Could not send the print. Check the internet connection.');
-  return jobRef.key!;
+  // Not awaited: a large print on slow Wi-Fi keeps uploading and the job is followed meanwhile, so
+  // a slow upload is never reported as a failure that later prints anyway.
+  const uploaded = set(jobRef, job);
+  uploaded.catch(() => undefined);
+  return { jobId: jobRef.key!, uploaded };
 }
+
+export const readJob = async (boothId: string, jobId: string) =>
+  (await get(ref(db, `${base(boothId)}/jobs/${jobId}`))).val() as PrintJob | null;
+
+export const removeJob = (boothId: string, jobId: string) => remove(ref(db, `${base(boothId)}/jobs/${jobId}`)).catch(() => undefined);
 
 /**
  * Follows a job until it is done. `error` is not final while the printer waits for staff
- * (e.g. paper out), so an error only ends the wait after two minutes.
+ * (e.g. paper out), so an error only ends the wait after two minutes. The wait allows for the
+ * number of sheets and starts again whenever the print PC reports progress.
  */
 export function followJob(
   boothId: string,
   jobId: string,
   onUpdate: (status: JobStatus, message: string) => void,
-): Promise<{ status: 'done' | 'error'; message: string; claimed: boolean }> {
+  opts: { sheets?: number; uploaded?: Promise<void> } = {},
+): Promise<{ status: 'done' | 'error'; message: string; claimed: boolean; sent: boolean }> {
   return new Promise((resolve) => {
     let errorSince = 0;
     let claimed = false;
+    let sent = !opts.uploaded;
+    void opts.uploaded?.then(
+      () => {
+        sent = true;
+      },
+      () => undefined,
+    );
     let last = { status: 'error' as JobStatus, message: 'The print PC did not respond.' };
-    const deadline = setTimeout(() => finish({ status: 'error', message: last.status === 'error' ? last.message : 'The printer took too long.' }), 4 * 60_000);
+    const waitMs = 4 * 60_000 + Math.max(0, (opts.sheets ?? 1) - 1) * 40_000;
+    const timeout = () =>
+      finish({
+        status: 'error',
+        message: !sent
+          ? 'The print could not be sent (no internet). It was cancelled; reprint from the staff menu.'
+          : last.status === 'error'
+            ? last.message
+            : 'The printer took too long.',
+      });
+    let deadline = setTimeout(timeout, waitMs);
+    let lastSeen = '';
     let errorTimer: ReturnType<typeof setTimeout> | null = null;
     const unsub = onValue(ref(db, `${base(boothId)}/jobs/${jobId}`), (s) => {
       const j = s.val() as PrintJob | null;
       if (!j) return;
       last = { status: j.status, message: j.message ?? '' };
       if (j.status === 'printing') claimed = true;
+      // Progress from the print PC restarts the wait.
+      const seen = `${j.status}|${j.message ?? ''}|${j.updatedAt ?? ''}`;
+      if (seen !== lastSeen && sent) {
+        lastSeen = seen;
+        clearTimeout(deadline);
+        deadline = setTimeout(timeout, waitMs);
+      }
       onUpdate(j.status, j.message ?? '');
       if (j.status === 'done') finish({ status: 'done', message: j.message ?? '' });
       else if (j.status === 'error') {
@@ -189,7 +229,7 @@ export function followJob(
       unsub();
       // The order keeps the outcome; the job record (and any leftover ciphertext) is removed.
       void remove(ref(db, `${base(boothId)}/jobs/${jobId}`)).catch(() => undefined);
-      resolve({ ...r, claimed });
+      resolve({ ...r, claimed, sent });
     }
   });
 }

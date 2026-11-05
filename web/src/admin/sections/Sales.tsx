@@ -62,7 +62,8 @@ function summarise(orders: Order[]) {
   const byColour: Record<string, Bucket> = {};
   for (const o of orders) {
     if (!isPaidStatus(o.status)) continue;
-    const sheets = o.status === 'printed' ? o.copies : 0;
+    // Paper used: 5×7 and 6×8 take two prints' worth of the roll (same as the paper counter).
+    const sheets = o.status === 'printed' ? o.copies * (PRINT_SIZES[o.size]?.sheets ?? 1) : 0;
     // Paper used counts every print (free, demo and reprints included); revenue only real money.
     r.sheets += sheets;
     if (o.reprintOf) {
@@ -132,7 +133,7 @@ export function OverviewSection({ boothId, data }: SectionProps) {
       <div className="stats">
         <Stat label="Revenue today" value={rupees(sum.revenue)} color="var(--yellow)" />
         <Stat label="Paid orders today" value={String(sum.paid)} color="var(--cyan)" />
-        <Stat label="Prints today" value={String(sum.sheets)} color="var(--pink)" />
+        <Stat label="Paper used today" value={String(sum.sheets)} color="var(--pink)" />
         {sum.pending > 0 && <Stat label="Paid, not printed" value={String(sum.pending)} color="var(--danger)" />}
         {sum.demo > 0 && <Stat label="Demo orders" value={String(sum.demo)} color="var(--orange)" />}
       </div>
@@ -333,7 +334,7 @@ export function SalesSection({ boothId }: SectionProps) {
             ['Generated', new Date().toLocaleString('en-IN')],
             [],
             ['Paid orders', sum.paid],
-            ['Prints (sheets)', sum.sheets],
+            ['Paper used (prints; 5×7 and 6×8 count 2)', sum.sheets],
             ['Revenue (₹)', sum.revenue / 100],
             ['UPI (₹)', sum.upi / 100],
             ['Cash (₹)', sum.cash / 100],
@@ -415,7 +416,7 @@ export function SalesSection({ boothId }: SectionProps) {
           <div className="stats">
             <Stat label="Revenue" value={rupees(sum.revenue)} color="var(--yellow)" />
             <Stat label="Paid orders" value={String(sum.paid)} color="var(--cyan)" />
-            <Stat label="Prints (sheets)" value={String(sum.sheets)} color="var(--pink)" />
+            <Stat label="Paper used (prints)" value={String(sum.sheets)} color="var(--pink)" />
             <Stat label="UPI" value={rupees(sum.upi)} color="var(--blue)" />
             <Stat label="Cash" value={rupees(sum.cash)} color="var(--peacock)" />
             <Stat label="Reprints" value={String(sum.reprints)} color="var(--orange)" />

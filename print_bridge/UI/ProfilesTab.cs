@@ -9,7 +9,7 @@ namespace Epixs.PrintBridge.UI;
 /// <summary>One row per media|finish: printer, paper size and captured driver settings (DEVMODE).</summary>
 internal sealed class ProfilesTab : TabPage
 {
-    private const string NotSet = "(not set – Windows default printer)";
+    private const string NotSet = "(not set – this size will not print)";
     private const string AutoPaper = "(auto – match size)";
 
     private readonly BridgeServices _services;
@@ -29,10 +29,14 @@ internal sealed class ProfilesTab : TabPage
         var root = UiKit.Column(new Padding(16, 12, 16, 12));
 
         var help = UiKit.Label(
-            "Choose the printer for each print size and finish. For the DNP DS-RX1HS: pick the DNP printer, then click " +
-            "\"Driver settings…\" and in the DNP dialog set the paper size, turn on the 2-inch cut for the 2×6 profiles, " +
-            "and choose Glossy or Matte for the overcoat. Click OK – the bridge stores those driver settings and uses them " +
-            "for every print with that profile. Leave the paper size on automatic when you set it in the driver dialog.",
+            "Choose the printer for each print size and finish. For the Citizen JR10-M01: pick the Citizen printer, then " +
+            "click \"Driver settings…\" and in the Citizen dialog set the paper size (L 3.5×5 and 2L 5×7 on the 5-inch roll; " +
+            "PC 4×6 and A5 6×8 on the 6-inch roll), the 2-inch cut for the 2×6 profiles, and Glossy or Matte for the overcoat. " +
+            "Click OK – the bridge stores those driver settings and uses them for every print with that profile. Leave the " +
+            "paper size on automatic when you set it in the driver dialog. 2×6 strips need the driver's 2-inch cut paper/option " +
+            "on a 4×6 sheet; if the driver has none, turn 2×6 off in the dashboard. A size without a printer does not print " +
+            "(never on the Windows default printer), and a print stops if the paper does not match the size. Other dye-sub " +
+            "printers (for example the DNP DS-RX1HS) are set up the same way.",
             9.5f, color: UiKit.Muted);
         help.MaximumSize = new Size(980, 0);
         root.Controls.Add(help);
@@ -187,7 +191,7 @@ internal sealed class ProfilesTab : TabPage
             updated = new PrintProfile { PrinterName = selected };
             s.Profiles[row.Key] = updated;
         });
-        Log.Info($"Profile {row.Key}: printer set to {(updated?.PrinterName ?? "(default printer)")}");
+        Log.Info($"Profile {row.Key}: printer set to {(updated?.PrinterName ?? "(not set)")}");
 
         _loading = true;
         try
@@ -279,7 +283,7 @@ internal sealed class ProfilesTab : TabPage
         {
             _loading = false;
         }
-        _result.Text = $"{row.Key} cleared – it will use the Windows default printer.";
+        _result.Text = $"{row.Key} cleared – this size will not print until you choose a printer.";
     }
 
     private void TestPrint(ProfileRow row)

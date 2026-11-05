@@ -88,6 +88,7 @@
 .logo-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-bottom: 8px; }
 .logo-box { width: 220px; height: 90px; background: var(--surface-high); border-radius: 12px; padding: 8px; display: flex; align-items: center; justify-content: center; }
 .logo-box img { max-width: 100%; max-height: 100%; }
+.logo-box.light { background: #ffffff; }
 label.btn.disabled { opacity: 0.5; pointer-events: none; }
 .preview-img { width: 100%; box-shadow: 0 10px 24px rgba(0, 0, 0, 0.5); }
 .template-admin-list { display: flex; flex-direction: column; gap: 8px; }
@@ -127,3 +128,16 @@ label.btn.disabled { opacity: 0.5; pointer-events: none; }
 /* file inputs stay reachable by keyboard while the label is the visible button */
 .visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
 label.btn:focus-within { outline: 2px solid var(--cyan); outline-offset: 2px; }
+
+/* six AI designs */
+.ai-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; }
+.ai-card { position: relative; background: var(--surface-high); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.ai-card.empty { border: 2px dashed var(--outline); background: transparent; }
+.ai-card select { width: 100%; }
+.ai-num { position: absolute; top: 10px; right: 12px; width: 26px; height: 26px; border-radius: 50%; background: var(--action); color: #fff; font-weight: 800; font-size: 13px; display: flex; align-items: center; justify-content: center; }
+.ai-thumbs { display: flex; gap: 8px; min-height: 120px; align-items: center; }
+.ai-thumbs img { max-height: 120px; width: auto; border-radius: 4px; }
+.ai-thumbs .thumb-placeholder { height: 120px; width: 80px; border-radius: 4px; }
+.sample-row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.sample-photo { display: flex; flex-direction: column; gap: 6px; align-items: center; }
+.sample-photo img, .sample-photo .thumb-placeholder { width: 120px; height: 120px; object-fit: cover; border-radius: 10px; }

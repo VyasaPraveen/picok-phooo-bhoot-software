@@ -10,6 +10,10 @@ export interface SizePrice {
 
 export type PaymentMode = 'demo' | 'bridge';
 export type PrintMode = 'demo' | 'bridge';
+/** Booth look for an event: screens, standard print style and logo variant. */
+export type BoothTheme = 'dark' | 'light';
+/** Which camera takes the photos. `auto` prefers a USB camera (Canon EOS R50) over the tablet camera. */
+export type CameraSource = 'auto' | 'usb' | 'front' | 'back';
 
 /** Booth settings at /booths/{b}/settings (docs/CLOUD_API.md). */
 export interface BoothSettings {
@@ -18,7 +22,15 @@ export interface BoothSettings {
   eventDate: string;
   showEventOnPrint: boolean;
   logoAssetId: string | null;
+  /** Optional client logo for light backgrounds (dark text). */
+  logoLightAssetId: string | null;
   logoStripBg: string;
+  theme: BoothTheme;
+  cameraSource: CameraSource;
+  /** Sample photos shown in design previews instead of silhouettes (up to 4). */
+  samplePhotoAssetIds: string[];
+  /** The one retro design customers see (2×6 strips always use Vintage Film Strip). */
+  aiRetroId: string;
   prices: Record<string, SizePrice>;
   maxCopies: number;
   freeMode: boolean;
@@ -61,7 +73,12 @@ export const DEFAULT_SETTINGS: BoothSettings = {
   eventDate: '',
   showEventOnPrint: true,
   logoAssetId: null,
+  logoLightAssetId: null,
   logoStripBg: 'template',
+  theme: 'dark',
+  cameraSource: 'auto',
+  samplePhotoAssetIds: [],
+  aiRetroId: 'retro_groovy_70s',
   prices: DEFAULT_PRICES,
   maxCopies: 4,
   freeMode: false,
@@ -126,12 +143,18 @@ export function normaliseSettings(raw: unknown): BoothSettings {
     eventDate: str(r.eventDate, ''),
     showEventOnPrint: bool(r.showEventOnPrint, d.showEventOnPrint),
     logoAssetId: typeof r.logoAssetId === 'string' ? r.logoAssetId : null,
+    logoLightAssetId: typeof r.logoLightAssetId === 'string' ? r.logoLightAssetId : null,
     logoStripBg: str(r.logoStripBg, d.logoStripBg),
+    theme: r.theme === 'light' ? 'light' : 'dark',
+    cameraSource: r.cameraSource === 'usb' || r.cameraSource === 'front' || r.cameraSource === 'back' ? r.cameraSource : 'auto',
+    samplePhotoAssetIds: arr(r.samplePhotoAssetIds).slice(0, 4),
+    aiRetroId: str(r.aiRetroId, d.aiRetroId) || d.aiRetroId,
     prices,
     maxCopies: clamp(r.maxCopies, 1, 10, d.maxCopies),
     freeMode: bool(r.freeMode, d.freeMode),
     bwWholePrint: bool(r.bwWholePrint, d.bwWholePrint),
-    loadedRoll: roll === '3.5x5' || roll === '5x7' || roll === '6x8' ? roll : '4x6',
+    // Older settings named dedicated 5×7 / 6×8 rolls; those sizes now come from the 5-inch / 6-inch roll.
+    loadedRoll: roll === '3.5x5' || roll === '5x7' ? '3.5x5' : '4x6',
     disabledSizes: arr(r.disabledSizes),
     finish: r.finish === 'matte' ? 'matte' : 'gloss',
     lowPaperThreshold: clamp(r.lowPaperThreshold, 0, 1000, d.lowPaperThreshold),

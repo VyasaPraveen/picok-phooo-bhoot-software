@@ -12,7 +12,7 @@ namespace Epixs.PrintBridge.Api;
 internal static class ApiEndpoints
 {
     public const long MaxImageBytes = 30L * 1024 * 1024;
-    private const long MaxImagePixels = 120_000_000;
+    private const long MaxImagePixels = 40_000_000; // kiosk sends at most ~4.4 MP (6x8 at 300 dpi = 4.3 MP)
     private const int MaxOrderIdLength = 64;
     private const int MaxDescriptionLength = 255;
 

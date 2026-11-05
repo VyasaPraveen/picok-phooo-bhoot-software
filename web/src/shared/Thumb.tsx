@@ -9,13 +9,21 @@ export interface RenderEnv {
   boothId: string | null;
   settings: BoothSettings;
   logo: LogoImages;
+  /** Sample photos for previews; empty = friendly silhouettes. */
+  samples?: HTMLImageElement[];
 }
 
 export const RenderEnvContext = createContext<RenderEnv | null>(null);
 
 export const envKey = (e: RenderEnv) => {
   const s = e.settings;
-  return [s.eventName, s.eventDate, s.showEventOnPrint, s.logoAssetId, s.logoStripBg, s.bwWholePrint, !!e.logo.logo].join('|');
+  // The loaded images themselves (not their ids), so a preview is never cached with a picture
+  // that was still loading.
+  const img = (i: HTMLImageElement | null | undefined) => (i ? `${i.src.length}:${i.src.slice(-24)}` : '-');
+  return [
+    s.eventName, s.eventDate, s.showEventOnPrint, s.logoStripBg, s.bwWholePrint,
+    img(e.logo.logo), img(e.logo.logoOnLight), (e.samples ?? []).map(img).join(','),
+  ].join('|');
 };
 
 /** Builds the render request fields shared by previews and real prints. */
@@ -74,7 +82,9 @@ export function TemplateThumb({
     void enqueue(async () => {
       if (!alive) return;
       const layerImages = await layerImagesFor(env.boothId, template);
-      const canvas = await renderTemplate({ template, bw, layerImages, ...renderExtras(env) }, scale);
+      const samples = env.samples ?? [];
+      const photos = template.slots.map((_, i) => (samples.length ? samples[i % samples.length] : null));
+      const canvas = await renderTemplate({ template, bw, layerImages, photos, ...renderExtras(env) }, scale);
       const data = canvas.toDataURL('image/jpeg', 0.88);
       cache.set(key, data);
       if (cache.size > 160) cache.delete(cache.keys().next().value!);
@@ -83,7 +93,7 @@ export function TemplateThumb({
     return () => {
       alive = false;
     };
-  }, [key, env?.logo.logo]);
+  }, [key, env?.logo.logo, env?.logo.logoOnLight]);
 
   const ratio = `${templateWidth(template)} / ${templateHeight(template)}`;
   return url ? (

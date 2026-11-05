@@ -23,7 +23,7 @@ Customers use the booth like this:
 | --- | --- | --- |
 | [`web/`](web/) | **PWA kiosk + admin dashboard** (React + TypeScript, Firebase Realtime Database) | Galaxy Tab (Chrome) + any browser |
 | [`kiosk_app/`](kiosk_app/) | Flutter kiosk app: the customer flow, camera, templates, UPI payment and the admin panel | Samsung Galaxy Tab A11+ (Android 16) |
-| [`print_bridge/`](print_bridge/) | EPIXS Print Bridge: the DNP print server and Razorpay QR payments, over the cloud (v1.1) or the LAN | Windows 10/11 PC attached to the DNP DS-RX1HS |
+| [`print_bridge/`](print_bridge/) | EPIXS Print Bridge: the photo print server and Razorpay QR payments, over the cloud (v1.1) or the LAN | Windows PC attached to the Citizen JR10-M01 dye-sub printer (any Windows photo printer driver works) |
 | [`template_cloud/`](template_cloud/) | Remote template packs (festival and event) on Firebase Hosting | Firebase Hosting |
 | [`docs/`](docs/) | [Setup and go-live guide](docs/SETUP.md) and the [Bridge API contract](docs/BRIDGE_API.md) | — |
 
@@ -68,7 +68,7 @@ Customers use the booth like this:
 - Kiosk lock (Android lock-task; device-owner mode for full lock-down).
 - Photos stay on the booth and are deleted automatically after printing.
 - EPIXS Print Bridge for Windows:
-  - DNP driver profiles for paper size, 2-inch cut and gloss/matte
+  - printer driver profiles for paper size, 2-inch cut and gloss/matte (Citizen JR10-M01; DNP also supported)
   - borderless print fitting
   - job tracking
   - printer status

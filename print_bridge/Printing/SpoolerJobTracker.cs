@@ -20,6 +20,7 @@ public static class SpoolerJobTracker
         var deadline = DateTime.UtcNow + Timeout;
         var queueFailures = 0;
         var wasBeingDeleted = false;
+        var seen = false;
         string? lastProblem = null;
 
         while (true)
@@ -30,6 +31,10 @@ public static class SpoolerJobTracker
             {
                 case JobPresence.Gone:
                     // Some drivers hand the job straight to the device; not finding it means it left the spooler.
+                    // The spooler does not give us the job id, so a job that was never seen (fast hand-off)
+                    // is still reported as printed; it is logged so the operator can check the tray if in doubt.
+                    if (!seen && !wasBeingDeleted)
+                        Log.Info($"{documentName} left the queue before it was seen; assuming it was printed.");
                     return wasBeingDeleted
                         ? new Outcome(false, "Print job was cancelled")
                         : new Outcome(true, null);
@@ -44,6 +49,7 @@ public static class SpoolerJobTracker
                     break;
                 default:
                     queueFailures = 0;
+                    seen = true;
                     wasBeingDeleted = deleting;
                     if (problem != lastProblem)
                     {
@@ -58,10 +64,69 @@ public static class SpoolerJobTracker
             }
 
             if (DateTime.UtcNow >= deadline)
-                return new Outcome(false, lastProblem ?? "Printer did not finish the job within 5 minutes");
+                return CancelAfterTimeout(printerName, documentName, lastProblem);
 
             if (ct.WaitHandle.WaitOne(PollInterval))
                 return new Outcome(false, "Print bridge was stopped before the job finished");
+        }
+    }
+
+    /// <summary>
+    /// Deletes the job from the Windows queue after the timeout, so it cannot print later and be printed
+    /// twice after a reprint.
+    /// </summary>
+    private static Outcome CancelAfterTimeout(string printerName, string documentName, string? lastProblem)
+    {
+        var prefix = lastProblem is null ? string.Empty : $"{lastProblem}. ";
+        var cancelled = TryCancel(printerName, documentName);
+        if (cancelled is null)
+            return new Outcome(true, null); // it left the queue at the last moment
+        if (cancelled == true)
+        {
+            Log.Warn($"{documentName}: cancelled in the Windows queue after waiting {Timeout.TotalMinutes:0} minutes");
+            return new Outcome(false, $"{prefix}Cancelled after waiting 5 minutes for the printer – nothing was printed; reprint from the staff menu");
+        }
+        Log.Warn($"{documentName}: could not be cancelled in the Windows queue after the timeout");
+        return new Outcome(false, $"{prefix}Printer did not finish within 5 minutes and the job could not be cancelled – it may still print; check the tray before reprinting");
+    }
+
+    /// <summary>True when the job was deleted (or is being deleted), false when it could not be, null when it was already gone.</summary>
+    private static bool? TryCancel(string printerName, string documentName)
+    {
+        try
+        {
+            using (var access = PrintQueueAccess.Open(printerName))
+            {
+                using var jobs = access.Queue.GetPrintJobInfoCollection();
+                var found = false;
+                foreach (var job in jobs)
+                {
+                    using (job)
+                    {
+                        if (!IsOurJob(job.Name, documentName))
+                            continue;
+                        found = true;
+                        job.Cancel();
+                    }
+                }
+                if (!found)
+                    return null;
+            }
+
+            // Confirm: the job must be gone or marked as deleting.
+            for (var i = 0; i < 5; i++)
+            {
+                Thread.Sleep(PollInterval);
+                var (presence, _, deleting) = Observe(printerName, documentName);
+                if (presence is JobPresence.Gone || deleting)
+                    return true;
+            }
+            return false;
+        }
+        catch (Exception ex) when (ex is PrintSystemException or InvalidOperationException)
+        {
+            Log.Warn($"Could not cancel {documentName} in print queue \"{printerName}\": {ex.Message}");
+            return false;
         }
     }
 

@@ -11,6 +11,7 @@ import { PaymentScreen } from './screens/Payment';
 import { PreviewScreen, PrintingScreen } from './screens/Output';
 import { AttractScreen, OptionsScreen, SizeScreen, TemplateScreen } from './screens/Choose';
 import { purgePrints } from './printStore';
+import { onUpdateReady, updateReady } from './updates';
 
 export type Step = 'attract' | 'size' | 'template' | 'options' | 'payment' | 'capture' | 'preview' | 'printing';
 
@@ -84,10 +85,23 @@ export function Flow({ boothId, data }: { boothId: string; data: BoothData }) {
 
   useKioskScreen();
 
+  // Apply a new app version only on the start screen, between customers.
+  useEffect(() => {
+    const apply = () => {
+      if (stepRef.current === 'attract' && !panel && !askPin) location.reload();
+    };
+    if (step === 'attract' && updateReady()) {
+      const t = setTimeout(apply, 1500);
+      return () => clearTimeout(t);
+    }
+    return onUpdateReady(apply);
+  }, [step, panel, askPin]);
+
   const resume = (order: Order, template: SourcedTemplate | undefined, blob: Blob | null) => {
     setPanel(null);
-    if (!template) return;
-    setSession({ ...newSession(), size: order.size, template, bw: order.bw, copies: order.copies, order, printBlob: blob });
+    // A saved print file is enough to print; the design is needed only to take the photos again.
+    if (!template && !blob) return;
+    setSession({ ...newSession(), size: order.size, template: template ?? null, bw: order.bw, copies: order.copies, order, printBlob: blob });
     go(blob ? 'printing' : 'capture');
   };
 

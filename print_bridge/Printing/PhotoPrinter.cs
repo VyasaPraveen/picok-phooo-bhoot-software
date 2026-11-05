@@ -116,14 +116,22 @@ public static class PhotoPrinter
         using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
         using var decoded = Image.FromStream(stream, useEmbeddedColorManagement: true, validateImageData: true);
         var bitmap = new Bitmap(decoded.Width, decoded.Height, PixelFormat.Format24bppRgb);
-        bitmap.SetResolution(300, 300);
-        using (var g = Graphics.FromImage(bitmap))
+        try
         {
-            g.Clear(Color.White); // flatten any transparency onto white paper
-            g.DrawImage(decoded, 0, 0, decoded.Width, decoded.Height);
+            bitmap.SetResolution(300, 300);
+            using (var g = Graphics.FromImage(bitmap))
+            {
+                g.Clear(Color.White); // flatten any transparency onto white paper
+                g.DrawImage(decoded, 0, 0, decoded.Width, decoded.Height);
+            }
+            ApplyExifOrientation(decoded, bitmap);
+            return bitmap;
         }
-        ApplyExifOrientation(decoded, bitmap);
-        return bitmap;
+        catch
+        {
+            bitmap.Dispose();
+            throw;
+        }
     }
 
     private static void ApplyExifOrientation(Image source, Bitmap target)

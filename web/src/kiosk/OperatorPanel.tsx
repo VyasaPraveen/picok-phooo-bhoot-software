@@ -1,13 +1,14 @@
-import { limitToLast, onValue, orderByChild, query, ref } from 'firebase/database';
-import { useEffect, useState } from 'react';
+import { equalTo, limitToLast, onValue, orderByChild, query, ref } from 'firebase/database';
+import { useEffect, useMemo, useState } from 'react';
 import { MEDIA_ROLLS, PRINT_SIZES } from '../render';
 import type { BoothData } from '../shared/booth';
 import { db } from '../shared/firebase';
 import { bridgeOnline, ORDER_STATUS_LABEL, PAYMENT_LABEL, rupees, type Order } from '../shared/model';
 import type { SourcedTemplate } from '../shared/templates';
 import { useToast, type PinRole } from '../shared/ui';
-import { createOrder, newRollLoaded, nextOrderId, withTimeout } from './boothOps';
-import { getPrint } from './printStore';
+import { consumePaper, createOrder, newRollLoaded, nextOrderId, readJob, removeJob, updateOrder, withTimeout } from './boothOps';
+import { isUsbCamera, listCameras, pinCamera, pinnedCamera } from './camera';
+import { getPrint, savePrint } from './printStore';
 
 /** Staff panel on the tablet: resume or reprint paid orders, paper roll, printer status. */
 export function OperatorPanel({
@@ -24,22 +25,34 @@ export function OperatorPanel({
   onResume: (order: Order, template: SourcedTemplate | undefined, blob: Blob | null) => void;
 }) {
   const toast = useToast();
-  const [orders, setOrders] = useState<Order[]>([]);
+  const [recentOrders, setRecentOrders] = useState<Order[]>([]);
+  const [open, setOpen] = useState<Record<string, Order[]>>({});
   const [prints, setPrints] = useState<Record<string, boolean>>({});
   const s = data.settings;
   const roll = MEDIA_ROLLS[s.loadedRoll];
   const online = bridgeOnline(data.bridge);
 
-  useEffect(
-    () =>
-      onValue(query(ref(db, `booths/${boothId}/orders`), orderByChild('createdAt'), limitToLast(60)), (snap) => {
-        const list: Order[] = [];
-        snap.forEach((c) => {
-          list.push(c.val() as Order);
-        });
-        setOrders(list.reverse());
-      }),
-    [boothId],
+  useEffect(() => {
+    const ordersRef = ref(db, `booths/${boothId}/orders`);
+    const collect = (snap: { forEach: (cb: (c: { val: () => unknown }) => void) => void }) => {
+      const list: Order[] = [];
+      snap.forEach((c) => {
+        list.push(c.val() as Order);
+      });
+      return list;
+    };
+    // Paid orders that still need printing are fetched by status, so they never drop off the list
+    // however many orders came after them.
+    const unsubs = (['paid', 'printing', 'failed'] as const).map((st) =>
+      onValue(query(ordersRef, orderByChild('status'), equalTo(st)), (snap) => setOpen((o) => ({ ...o, [st]: collect(snap) }))),
+    );
+    unsubs.push(onValue(query(ordersRef, orderByChild('createdAt'), limitToLast(40)), (snap) => setRecentOrders(collect(snap).reverse())));
+    return () => unsubs.forEach((u) => u());
+  }, [boothId]);
+  // Memoised: the print lookup below runs only when the orders actually change.
+  const orders = useMemo(
+    () => [...Object.values(open).flat(), ...recentOrders].filter((o, i, all) => all.findIndex((x) => x.id === o.id) === i),
+    [open, recentOrders],
   );
 
   useEffect(() => {
@@ -49,19 +62,39 @@ export function OperatorPanel({
   }, [orders]);
 
   const templateOf = (o: Order) => data.templates.find((t) => t.id === o.templateId);
-  const attention = orders.filter((o) => o.status === 'paid' || o.status === 'printing' || o.status === 'failed');
-  const recent = orders.filter((o) => o.status === 'printed').slice(0, 15);
+  const attention = Object.values(open)
+    .flat()
+    .filter((o) => !o.refundedAt)
+    .sort((a, b) => b.createdAt - a.createdAt);
+  const recent = recentOrders.filter((o) => o.status === 'printed').slice(0, 15);
 
   const resume = async (o: Order) => {
+    // An order sent to the printer before a reload: check what happened to that job first.
+    if (o.jobId && o.status === 'printing') {
+      const job = await readJob(boothId, o.jobId).catch(() => null);
+      if (job?.status === 'done') {
+        await updateOrder(boothId, o.id, { status: 'printed', error: null }).catch(() => undefined);
+        void consumePaper(boothId, o.copies * (PRINT_SIZES[o.size]?.sheets ?? 1)).catch(() => undefined);
+        void removeJob(boothId, o.jobId);
+        return toast(`${o.id} had already printed. It is now marked as printed.`);
+      }
+      if (job && (job.status === 'queued' || job.status === 'printing')) {
+        return toast(`${o.id} is still ${job.status === 'queued' ? 'waiting for' : 'on'} the printer. Check the printer before printing again.`, true);
+      }
+      if (!confirm(`${o.id} may already have printed. Check the printer tray. Print it again?`)) return;
+      if (job) void removeJob(boothId, o.jobId);
+    } else if (o.status === 'failed' && /may still print/i.test(o.error ?? '') && !confirm(`${o.id} may still print by itself. Check the printer tray. Print it again?`)) {
+      return;
+    }
     const p = await getPrint(o.id).catch(() => undefined);
-    if (!templateOf(o)) return toast('The template for this order is no longer available.', true);
+    // The saved print file is enough; the design is only needed to take the photos again.
+    if (!p?.blob && !templateOf(o)) return toast('The design for this order is no longer available and its photos were deleted.', true);
     onResume(o, templateOf(o), p?.blob ?? null);
   };
 
   const reprint = async (o: Order) => {
     const p = await getPrint(o.id).catch(() => undefined);
     if (!p) return toast('The photos of this order were already deleted for privacy.', true);
-    if (!templateOf(o)) return toast('The template for this order is no longer available.', true);
     const rest: Order = { ...o };
     delete rest.refundedAt;
     const id = await nextOrderId(boothId);
@@ -77,6 +110,8 @@ export function OperatorPanel({
       error: null,
       reprintOf: o.id,
     });
+    // Kept under the new order too, so a failed reprint can be printed again.
+    await savePrint(copy.id, p.blob).catch(() => undefined);
     onResume(copy, templateOf(o), p.blob);
   };
 
@@ -117,6 +152,8 @@ export function OperatorPanel({
           </div>
         </section>
 
+        <CameraPicker source={s.cameraSource} />
+
         <h3>Needs attention</h3>
         {attention.length === 0 && <p className="dim">All paid orders are printed. 🎉</p>}
         {attention.map((o) => (
@@ -146,6 +183,54 @@ export function OperatorPanel({
         </footer>
       </div>
     </div>
+  );
+}
+
+const SOURCE_LABEL = {
+  auto: 'USB camera (Canon R50) when connected, otherwise the tablet camera',
+  usb: 'USB camera (Canon R50) only',
+  front: 'Tablet front camera',
+  back: 'Tablet back camera',
+} as const;
+
+/** Which camera this tablet uses; staff can pin one here (the dashboard sets the booth default). */
+function CameraPicker({ source }: { source: keyof typeof SOURCE_LABEL }) {
+  const toast = useToast();
+  const [cams, setCams] = useState<MediaDeviceInfo[] | null>(null);
+  const [pinned, setPinned] = useState(pinnedCamera());
+  const load = () =>
+    void listCameras()
+      .then(setCams)
+      .catch(() => setCams([]));
+  useEffect(() => {
+    load();
+    navigator.mediaDevices.addEventListener('devicechange', load);
+    return () => navigator.mediaDevices.removeEventListener('devicechange', load);
+  }, []);
+  const choose = (id: string) => {
+    pinCamera(id || null);
+    setPinned(id || null);
+    toast(id ? 'This tablet now uses the chosen camera.' : 'This tablet follows the booth camera setting.');
+  };
+  return (
+    <section className="op-camera">
+      <h3>Camera</h3>
+      <label className="dim small">
+        Booth setting: {SOURCE_LABEL[source]}
+        <select value={pinned ?? ''} onChange={(e) => choose(e.target.value)}>
+          <option value="">Follow the booth setting</option>
+          {pinned && cams && !cams.some((c) => c.deviceId === pinned) && <option value={pinned}>Chosen camera (not connected)</option>}
+          {(cams ?? []).map((c, i) => (
+            <option key={c.deviceId} value={c.deviceId}>
+              {c.label || `Camera ${i + 1}`}{isUsbCamera(c, cams ?? []) ? ' · USB' : ''}
+            </option>
+          ))}
+        </select>
+      </label>
+      {cams && !cams.some((c) => isUsbCamera(c, cams)) && (
+        <p className="dim small">No USB camera found. Connect the Canon R50 with its USB-C cable and switch it to streaming (webcam) mode.</p>
+      )}
+    </section>
   );
 }
 

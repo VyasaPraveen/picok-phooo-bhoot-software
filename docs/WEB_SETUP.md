@@ -6,7 +6,7 @@ The booth is a **web app (PWA)** hosted on Firebase:
 |---|---|---|
 | Booth kiosk | https://picok-booth.web.app | Galaxy Tab A11+ (Chrome, installed as an app) |
 | Admin dashboard | https://picok-booth.web.app/admin | Any phone or laptop |
-| EPIXS Print Bridge 1.1 | `print_bridge/dist/EpixsPrintBridge.exe` | The Windows PC connected to the DNP DS-RX1HS |
+| EPIXS Print Bridge 1.1 | `print_bridge/dist/EpixsPrintBridge.exe` | The Windows PC connected to the Citizen JR10-M01 printer |
 
 Everything talks through the Firebase **Realtime Database**, on the free Spark plan. Print files travel
 **end-to-end encrypted**: the tablet encrypts each print with the PC's public key, and the PC deletes it from
@@ -43,7 +43,7 @@ keys. The contract is in [CLOUD_API.md](CLOUD_API.md).
    - see the printer status
 
 ## 3. Print PC
-1. Install the DNP driver and set up the printer profiles as described in `print_bridge/README.md`.
+1. Install the Citizen JR10-M01 driver and set up the printer profiles as described in `print_bridge/README.md`.
 2. Run `EpixsPrintBridge.exe`. On the **Cloud** tab, click **Pair with booth**. In
    **Devices → Pair a device**, choose **Print PC** and type the code it shows. A booth has one Print PC:
    pairing a new one unpairs the old one and resets the encryption key.
@@ -51,15 +51,36 @@ keys. The contract is in [CLOUD_API.md](CLOUD_API.md).
    KYC-complete with QR Codes enabled.
 4. In the dashboard, go to **Paper & printer → Send test print**.
 
-## 4. Go live
+## 4. Camera, theme, designs and paper
+- **Canon EOS R50:**
+  - On the R50, turn on its streaming (webcam / UVC) mode, then connect it to the tablet's USB-C port.
+  - **Booth settings → Camera → Auto** uses the R50 whenever it is connected, and falls back to the tablet camera.
+  - Staff can pick a camera on the tablet (staff menu → Camera).
+  - Test once on the Galaxy Tab: the tablet must accept the R50 as a USB camera.
+- **Theme:** **Event & brand → Booth theme**, Dark or Light, per event.
+  - The booth screens, the standard print style and the logo version all follow it.
+  - For a client logo, also upload its dark-text version for light backgrounds.
+- **Six AI designs** (**Templates**):
+  1. Retro: choose one. 2×6 strips always use Vintage Film Strip.
+  2. Festival: switches by date automatically.
+  3. to 6. Upload the client's four designs.
+  - Under **Sample photos for previews**, upload up to 4 sample photos. They replace the silhouettes in the
+    design previews, for example the Film strip.
+- **Paper (Citizen JR10-M01):** in **Paper & printer → Loaded media**, choose the roll that is in the printer.
+  - The 5-inch roll prints 3.5×5 and 5×7.
+  - The 6-inch roll prints 4×6, 6×8 and 2×6 strips.
+  - Customers only see the sizes of the loaded roll.
+  - The Citizen driver must be installed on the Print PC. Its documentation lists Windows XP/7. Test on the Print PC's Windows version before the event.
+
+## 5. Go live
 In the dashboard, open **Booth settings → Live or demo** and switch **Payments** to *Live (Razorpay)* and
-**Printing** to *Live (DNP printer)*. Then:
+**Printing** to *Live (printer)*. Then:
 - Set the real prices (**Prices**).
 - Upload the client's logo and event name (**Event & brand**).
 - Change both PINs (**Booth settings → Booth PINs**).
 - Make one live ₹1 payment end to end, and refund it from the Razorpay dashboard.
 
-## Demo mode (for showing the client)
+## 6. Demo mode (for showing the client)
 - No print PC or Razorpay account is needed.
 - The payment QR is marked DEMO and confirms itself after a few seconds, or when you tap **Simulate payment**.
 - Instead of printing, the booth shows the finished print with a **Download print** button.

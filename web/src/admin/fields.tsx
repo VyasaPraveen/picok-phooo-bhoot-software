@@ -120,9 +120,20 @@ export function Stepper({
   );
 }
 
-/** Reads an image file, scales it down to fit `maxSide`, and returns PNG base64 plus size. */
-export async function imageFileToPng(file: File, maxSide: number): Promise<{ data: string; width: number; height: number }> {
-  if (!/^image\/(png|jpe?g|webp)$/.test(file.type)) throw new Error('Please choose a PNG, JPG or WebP image.');
+/** Image type, also when an Android file picker reports no MIME type. */
+export const imageType = (file: File) =>
+  file.type || ({ png: 'image/png', jpg: 'image/jpeg', jpeg: 'image/jpeg', webp: 'image/webp' } as Record<string, string>)[file.name.split('.').pop()?.toLowerCase() ?? ''] || '';
+
+/**
+ * Reads an image file, scales it down to fit `maxSide`, and returns base64 plus size and MIME type.
+ * `webp` keeps transparency at a fraction of the PNG size (design frames), when the browser can encode it.
+ */
+export async function imageFileToPng(
+  file: File,
+  maxSide: number,
+  opts: { webp?: boolean } = {},
+): Promise<{ data: string; width: number; height: number; mime: string }> {
+  if (!/^image\/(png|jpe?g|webp)$/.test(imageType(file))) throw new Error('Please choose a PNG, JPG or WebP image.');
   if (file.size > 15 * 1024 * 1024) throw new Error('That image is too large (max 15 MB).');
   const bmp = await createImageBitmap(file);
   const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
@@ -133,11 +144,30 @@ export async function imageFileToPng(file: File, maxSide: number): Promise<{ dat
   c.height = h;
   c.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
   bmp.close();
-  const url = c.toDataURL('image/png');
+  let url = opts.webp ? c.toDataURL('image/webp', 0.92) : '';
+  if (!url.startsWith('data:image/webp')) url = c.toDataURL('image/png');
+  const mime = url.slice(5, url.indexOf(';'));
   const data = url.slice(url.indexOf(',') + 1);
   // Stored in the Realtime Database, which refuses single values over 10 MB.
   if (data.length > 8_000_000) throw new Error('That image is too detailed to store. Export it with fewer colours or a smaller size.');
-  return { data, width: w, height: h };
+  return { data, width: w, height: h, mime };
+}
+
+/** Reads a photo, scales it down to fit `maxSide`, and returns JPEG base64 (sample photos). */
+export async function imageFileToJpeg(file: File, maxSide: number): Promise<{ data: string; width: number; height: number }> {
+  if (!/^image\/(png|jpe?g|webp)$/.test(imageType(file))) throw new Error('Please choose a JPG, PNG or WebP photo.');
+  if (file.size > 25 * 1024 * 1024) throw new Error('That photo is too large (max 25 MB).');
+  const bmp = await createImageBitmap(file);
+  const k = Math.min(1, maxSide / Math.max(bmp.width, bmp.height));
+  const w = Math.round(bmp.width * k);
+  const h = Math.round(bmp.height * k);
+  const c = document.createElement('canvas');
+  c.width = w;
+  c.height = h;
+  c.getContext('2d')!.drawImage(bmp, 0, 0, w, h);
+  bmp.close();
+  const url = c.toDataURL('image/jpeg', 0.86);
+  return { data: url.slice(url.indexOf(',') + 1), width: w, height: h };
 }
 
 export const fmtDateTime = (ms: number) =>

@@ -9,6 +9,15 @@ html, body { overflow: hidden; overscroll-behavior: none; user-select: none; -we
     radial-gradient(70vmin 70vmin at 95% 95%, rgba(255, 61, 154, 0.26), transparent 70%),
     radial-gradient(40vmin 40vmin at 75% 5%, rgba(18, 165, 110, 0.24), transparent 70%);
 }
+/* Light theme: softer glow and shadows. */
+:root[data-theme='light'] .glow { opacity: 0.55; }
+:root[data-theme='light'] { --orange: #c45a00; --danger: #d43a3f; }
+:root[data-theme='light'] .price-pill, :root[data-theme='light'] .countdown { color: #fff; }
+/* Staff controls on the tablet: comfortable touch targets. */
+.kiosk .btn-sm, .operator .btn-sm { min-height: 48px; }
+/* White prints need an edge on white tiles. */
+:root[data-theme='light'] .template-tile img, :root[data-theme='light'] .mode-thumb img, :root[data-theme='light'] .preview-wrap img { box-shadow: 0 0 0 1px var(--outline), 0 6px 14px rgba(20, 20, 40, 0.12); }
+:root[data-theme='light'] .shadowed, :root[data-theme='light'] .sample-print { box-shadow: 0 12px 28px rgba(20, 20, 40, 0.18); }
 .kiosk-main { position: relative; height: 100%; animation: fade-in 0.28s ease; }
 @keyframes fade-in { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
 
@@ -164,6 +173,8 @@ html, body { overflow: hidden; overscroll-behavior: none; user-select: none; -we
 .op-status { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; margin-top: 14px; }
 .op-status > div { background: var(--surface-high); border-radius: 14px; padding: 14px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
 .op-status strong { font-size: 20px; }
+.op-camera label { display: flex; flex-direction: column; gap: 8px; max-width: 560px; }
+.op-camera select { min-height: 48px; }
 .ok { color: var(--peacock); } .bad { color: var(--orange); }
 .order-row { display: flex; justify-content: space-between; align-items: center; gap: 12px; background: var(--surface-high); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; border-left: 4px solid var(--outline); }
 .order-row.status-printed { border-left-color: var(--peacock); }

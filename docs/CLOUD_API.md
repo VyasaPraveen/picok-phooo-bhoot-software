@@ -75,7 +75,8 @@ no Cloud Functions and no Cloud Storage are needed.
 ```json
 {
   "businessName": "Picok", "eventName": "", "eventDate": "", "showEventOnPrint": true,
-  "logoAssetId": null, "logoStripBg": "template",
+  "logoAssetId": null, "logoLightAssetId": null, "logoStripBg": "template",
+  "theme": "dark", "cameraSource": "auto", "samplePhotoAssetIds": [], "aiRetroId": "retro_groovy_70s",
   "prices": {"4x6": {"colour": 15000, "bw": 15000, "extraCopy": 7000}, "3_5x5": {...}},   // "3.5x5" is stored as "3_5x5" (RTDB keys cannot contain ".")
   "maxCopies": 4, "freeMode": false, "bwWholePrint": false,
   "loadedRoll": "4x6", "disabledSizes": [], "finish": "gloss", "lowPaperThreshold": 50,
@@ -89,6 +90,24 @@ no Cloud Functions and no Cloud Storage are needed.
 ```
 - `paymentMode` is `demo` or `bridge`.
 - `printMode` is `demo` or `bridge`.
+- `theme` is `dark` or `light`. It sets the booth screens, the standard print style (Picok Midnight or
+  Classic White) and the logo version.
+- `logoLightAssetId` is the client logo version for light backgrounds. The Picok logo has a built-in light version.
+- `cameraSource` is `auto`, `usb`, `front` or `back`. `auto` uses a USB camera (Canon EOS R50 in streaming
+  mode) when one is connected. A tablet can also pin a camera locally (`localStorage` key `picok.cameraId`).
+- `samplePhotoAssetIds`: up to 4 photos used in design previews, never on prints.
+- `aiRetroId` is the one retro design offered. 2×6 strips always use `retro_vintage_film`.
+- `loadedRoll` is `4x6` (the 6-inch roll: 4×6, 6×8, 2×6) or `3.5x5` (the 5-inch roll: 3.5×5, 5×7).
+  - 5×7 and 6×8 use two units of the paper counter.
+  - Older values `5x7`/`6x8` load as `3.5x5`/`4x6`.
+
+**Six AI designs:** customers see these designs, then the standard layouts in the theme's style.
+1. The retro design (`aiRetroId`).
+2. The first festival or event design that is live today.
+3. to 6. The client's designs: `customTemplates` with `aiSlot` 1 to 4.
+
+Every 4×6 portrait AI design is also offered as `{id}@3.5x5`, `@5x7` and `@6x8`. These copies are scaled to fit
+(`fitFrom: "4x6"`), with the border filled in the design's edge colours.
 
 ### Order (`/booths/{b}/orders/{orderId}`)
 `orderId` = `yyyymmdd-NNNN`.
@@ -209,7 +228,8 @@ outcome. The bridge treats a deleted node as handled.
   then starts over with a new cloud identity and a new pairing code.
 - Clients treat the bridge as offline when `lastSeen` is more than 90 s old.
 - `printer.state` uses the LAN API values: `ready`, `printing`, `offline`, `paper_out`, `jammed`,
-  `error` or `not_found`.
+  `error` or `not_found`. It is `not_found` ("No printer set up") when no printer profile has a printer;
+  the bridge never reports or prints on the Windows default printer.
 
 ### TestPrint (`/booths/{b}/testPrints/{id}`): admin ⇄ bridge
 The admin writes `{media, finish, status:"queued", createdAt}`. The bridge prints its built-in test sheet

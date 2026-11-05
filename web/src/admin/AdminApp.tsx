@@ -10,7 +10,7 @@ import {
 import { get, onValue, ref, serverTimestamp, set, update } from 'firebase/database';
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { ensureFonts } from '../render';
-import { useBoothData, useLogo } from '../shared/booth';
+import { useBoothData, useLogo, useSamplePhotos } from '../shared/booth';
 import { DEFAULT_ADMIN_PIN, DEFAULT_OPERATOR_PIN, hashPin } from '../shared/crypto';
 import { auth, db, DEFAULT_BOOTH_ID, OWNER_EMAIL } from '../shared/firebase';
 import { DEFAULT_SETTINGS, settingsForDb } from '../shared/model';
@@ -245,8 +245,9 @@ function Dashboard({ user }: { user: User }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const toast = useToast();
   const data = useBoothData(boothId);
-  const logo = useLogo(boothId, data.settings.logoAssetId);
-  const env = useMemo<RenderEnv>(() => ({ boothId, settings: data.settings, logo }), [data.settings, logo]);
+  const logo = useLogo(boothId, data.settings.logoAssetId, data.settings.logoLightAssetId);
+  const samples = useSamplePhotos(boothId, data.settings.samplePhotoAssetIds);
+  const env = useMemo<RenderEnv>(() => ({ boothId, settings: data.settings, logo, samples }), [data.settings, logo, samples]);
 
   useEffect(() => {
     void Promise.all([ensureBooth(boothId), ensureFonts()])

@@ -1,4 +1,3 @@
-using System.Drawing.Printing;
 using System.Printing;
 using Epixs.PrintBridge.Core;
 
@@ -17,7 +16,10 @@ public static class PrinterState
 
 public sealed record PrinterStatus(string Name, bool Online, string State, string Message, int JobsInQueue);
 
-/// <summary>Reports the state of the main photo printer (4x6|gloss profile printer, else Windows default).</summary>
+/// <summary>
+/// Reports the state of the main photo printer: the 4x6|gloss profile printer, else the first profile
+/// that has a printer. Never the Windows default printer; with no profile it reports not_found.
+/// </summary>
 public sealed class PrinterStatusService
 {
     private static readonly TimeSpan CacheFor = TimeSpan.FromSeconds(1);
@@ -26,39 +28,67 @@ public sealed class PrinterStatusService
     private readonly object _gate = new();
     private PrinterStatus? _cached;
     private DateTime _cachedAt;
+    private TaskCompletionSource<PrinterStatus>? _inFlight;
 
     public PrinterStatusService(SettingsStore settings) => _settings = settings;
 
     public PrinterStatus GetStatus()
     {
+        // The spooler query can be slow, so it runs outside the lock; concurrent callers share one query.
+        TaskCompletionSource<PrinterStatus> pending;
+        bool runHere;
         lock (_gate)
         {
             if (_cached is not null && DateTime.UtcNow - _cachedAt < CacheFor)
                 return _cached;
-            _cached = Query(StatusPrinterName(_settings.Snapshot()));
-            _cachedAt = DateTime.UtcNow;
-            return _cached;
+            runHere = _inFlight is null;
+            pending = _inFlight ??= new TaskCompletionSource<PrinterStatus>(TaskCreationOptions.RunContinuationsAsynchronously);
+        }
+        return runHere ? RunQuery(pending) : pending.Task.GetAwaiter().GetResult();
+    }
+
+    private PrinterStatus RunQuery(TaskCompletionSource<PrinterStatus> pending)
+    {
+        try
+        {
+            var status = Query(StatusPrinterName(_settings.Snapshot()));
+            lock (_gate)
+            {
+                _cached = status;
+                _cachedAt = DateTime.UtcNow;
+                _inFlight = null;
+            }
+            pending.SetResult(status);
+            return status;
+        }
+        catch (Exception ex)
+        {
+            lock (_gate)
+                _inFlight = null;
+            pending.SetException(ex);
+            throw;
         }
     }
 
+    /// <summary>The printer whose state is reported, or an empty string when no profile has a printer.</summary>
     public static string StatusPrinterName(BridgeSettings settings)
     {
-        if (settings.Profiles.TryGetValue(MediaCatalog.ProfileKey("4x6", "gloss"), out var profile) &&
-            !string.IsNullOrWhiteSpace(profile.PrinterName))
-            return profile.PrinterName;
-        return DefaultPrinterName();
-    }
-
-    public static string DefaultPrinterName()
-    {
-        var name = new PrinterSettings().PrinterName;
-        return string.IsNullOrWhiteSpace(name) || name == "<no default printer>" ? string.Empty : name;
+        if (settings.Profiles.TryGetValue(MediaCatalog.ProfileKey("4x6", "gloss"), out var main) &&
+            !string.IsNullOrWhiteSpace(main.PrinterName))
+            return main.PrinterName;
+        foreach (var (media, finish) in MediaCatalog.AllProfiles())
+        {
+            if (settings.Profiles.TryGetValue(MediaCatalog.ProfileKey(media.Key, finish), out var profile) &&
+                !string.IsNullOrWhiteSpace(profile.PrinterName))
+                return profile.PrinterName;
+        }
+        return string.Empty;
     }
 
     private static PrinterStatus Query(string printerName)
     {
         if (string.IsNullOrEmpty(printerName))
-            return new PrinterStatus(string.Empty, false, PrinterState.NotFound, "No printer configured and no Windows default printer", 0);
+            return new PrinterStatus(string.Empty, false, PrinterState.NotFound, "No printer set up – choose one on the Printer profiles tab", 0);
 
         try
         {

@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { FILTER_NAMES, MEDIA_ROLLS, PRINT_SIZES, type PrintSizeKey } from '../../render';
-import type { BoothData } from '../../shared/booth';
+import { screenLogo, type BoothData } from '../../shared/booth';
 import { bridgeOnline, fromPrice, rupees } from '../../shared/model';
 import { visibleFor, type SourcedTemplate } from '../../shared/templates';
 import { TemplateThumb } from '../../shared/Thumb';
@@ -25,7 +25,7 @@ export function boothProblem(data: BoothData): string | null {
 export function StepHeader({ step, title, subtitle, right }: { step: number; title: string; subtitle?: string; right?: React.ReactNode }) {
   return (
     <header className="step-header">
-      <img src="/brand/picok_logo_transparent.png" alt="Picok" className="header-logo" />
+      <img src={screenLogo()} alt="Picok" className="header-logo" />
       <div className="step-titles">
         <h1>{title}</h1>
         {subtitle && <p className="dim">{subtitle}</p>}
@@ -75,7 +75,7 @@ export function AttractScreen({ data, go, onStaff }: StepProps & { onStaff: () =
     <div className="attract" onClick={() => !problem && go('size')}>
       <div className="staff-hotspot" onPointerDown={secret} onClick={(e) => e.stopPropagation()} aria-hidden />
       <section className="attract-left">
-        <img src="/brand/picok_logo_transparent.png" alt="Picok" className="attract-logo" />
+        <img src={screenLogo()} alt="Picok" className="attract-logo" />
         {s.eventName && <h2 className="event-name rainbow-text">{s.eventName}</h2>}
         {s.eventDate && <p className="dim event-date">{s.eventDate}</p>}
         <p className="tagline">Strike a pose. Take home a print in seconds.</p>
@@ -153,7 +153,7 @@ export function TemplateScreen({ data, session, go }: StepProps) {
   );
   const shown = filter === null ? all : all.filter((t) => t.slots.length === filter);
   const badge = (c: string) =>
-    c === 'retro' ? ['AI RETRO', 'pink'] : c === 'festival' || c === 'event' ? ['SPECIAL', 'orange'] : c === 'custom' ? ['CUSTOM', 'green'] : null;
+    c === 'retro' ? ['AI RETRO', 'pink'] : c === 'festival' || c === 'event' ? ['FESTIVAL', 'orange'] : c === 'custom' ? ['AI DESIGN', 'green'] : null;
 
   return (
     <div className="screen">

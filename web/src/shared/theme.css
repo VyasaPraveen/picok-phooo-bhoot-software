@@ -25,6 +25,20 @@
   color-scheme: dark;
 }
 
+/* Light booth theme (Event & brand → Theme). Accents are darkened so text stays readable on white. */
+:root[data-theme='light'] {
+  --bg: #f4f5fa;
+  --surface: #ffffff;
+  --surface-high: #eceef5;
+  --outline: #d3d6e2;
+  --text: #13131c;
+  --text-dim: #585b70;
+  --cyan: #0b93a6;
+  --yellow: #b98900;
+  --peacock: #0e8a5b;
+  color-scheme: light;
+}
+
 * { box-sizing: border-box; }
 html, body, #root { height: 100%; margin: 0; }
 body {
@@ -42,8 +56,9 @@ button:disabled { cursor: not-allowed; opacity: 0.45; }
 .btn {
   display: inline-flex; align-items: center; justify-content: center; gap: 10px;
   border: 0; border-radius: 999px; padding: 0 28px; min-height: 52px;
-  font-weight: 700; font-size: 18px; color: #fff; text-decoration: none; white-space: nowrap;
+  font-weight: 700; font-size: 18px; color: var(--text); text-decoration: none; white-space: nowrap;
 }
+.btn-primary, .btn-danger, .btn-success { color: #fff; }
 .btn-primary { background: var(--action); box-shadow: 0 8px 24px rgba(255, 61, 154, 0.35); }
 .btn-ghost { background: transparent; border: 2px solid var(--outline); font-weight: 600; }
 .btn-soft { background: var(--surface-high); }
@@ -88,11 +103,11 @@ input:focus, select:focus, textarea:focus { border-color: var(--cyan); outline: 
 .segmented button[aria-pressed='true'] { background: var(--cyan); color: #000; }
 
 .chip { border: 2px solid var(--outline); background: transparent; border-radius: 999px; padding: 8px 18px; font-weight: 600; }
-.chip[aria-pressed='true'] { background: var(--purple); border-color: var(--purple); }
+.chip[aria-pressed='true'] { background: var(--purple); border-color: var(--purple); color: #fff; }
 
 .toast {
   position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); z-index: 1000;
   background: var(--surface-high); color: var(--text); padding: 14px 22px; border-radius: 14px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5); max-width: min(90vw, 640px);
 }
-.toast.error { background: var(--danger); }
+.toast.error { background: var(--danger); color: #fff; }

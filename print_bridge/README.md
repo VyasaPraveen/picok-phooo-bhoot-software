@@ -1,7 +1,8 @@
 # EPIXS Print Bridge
 
 A Windows app that runs on the photo booth PC. The kiosk tablet sends finished photos to it over the
-local network. The bridge prints them on the **DNP DS-RX1HS** and creates the UPI QR codes for payment.
+local network. The bridge prints them on the photo printer (**Citizen JR10-M01**; the DNP DS-RX1HS works the
+same way) and creates the UPI QR codes for payment.
 The payment gateway secret stays on this PC and never reaches the tablet.
 
 - Program: `EpixsPrintBridge.exe`, a single file that needs no installer or .NET runtime.
@@ -59,12 +60,19 @@ For every size you sell:
 
 Notes:
 - If you change the printer of a row, its driver settings are cleared. Click **Driver settings…** again.
-- **Clear** removes the profile. A size without a profile prints on the **Windows default printer**, using
-  the closest matching paper size. To be safe, set up every size you sell, or make the DNP the Windows
-  default printer.
+- **Clear** removes the profile. A size without a profile **does not print**: the job fails with "No printer
+  set up for …". The bridge never prints on the Windows default printer. Set up every size you sell.
+- The paper used for a print must match the size of the row (either orientation, about 0.3" tolerance for borderless oversize;
+  2×6 strips use a 4×6 sheet). If the driver settings or the chosen paper size are for another size, the
+  job fails with "The … profile's paper is …" instead of printing on the wrong paper.
+- With **Paper size** on *auto*, the bridge picks the driver paper of the right size. Full-sheet sizes
+  never pick a "cut"/"split"/"strip"/"x2" paper. 2×6 rows prefer the driver's 2-inch cut paper. If the
+  driver has no 2-inch cut (paper size or option), turn 2×6 off in the dashboard.
+- Copies set in the driver dialog are ignored. The bridge always sends one page per copy.
 - The Status tab and the tablet show the state of the printer used for **4×6 Gloss**. If that profile
-  is not set, they show the Windows default printer. Possible states are ready, printing, out of paper,
-  jammed, offline and error.
+  is not set, they show the first profile that has a printer. With no profile at all the state is
+  `not_found` ("No printer set up"), so the kiosk does not take payment. Possible states are ready,
+  printing, out of paper, jammed, offline, error and not found.
 
 ## 4. Allow the tablet through Windows Firewall
 

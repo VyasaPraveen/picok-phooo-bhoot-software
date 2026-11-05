@@ -93,7 +93,7 @@ export function PreviewScreen({ boothId, data, session, go, reset }: StepProps) 
 
 type PrintPhase = 'sending' | 'printing' | 'done' | 'failed';
 
-/** Step 8 · Print: sent to the DNP printer through the Print Bridge, then back to Step 1. */
+/** Step 8 · Print: sent to the printer through the Print Bridge, then back to Step 1. */
 export function PrintingScreen({ boothId, data, session, reset }: StepProps) {
   const s = data.settings;
   const order = session.order!;
@@ -121,7 +121,8 @@ export function PrintingScreen({ boothId, data, session, reset }: StepProps) {
       }
       const key = data.bridge?.publicKey;
       if (!key) throw new Error('The print PC is not connected.');
-      const jobId = await submitPrintJob(boothId, {
+      const sheets = order.copies * (PRINT_SIZES[order.size]?.sheets ?? 1);
+      const { jobId, uploaded } = await submitPrintJob(boothId, {
         orderId: order.id,
         media: order.size,
         finish: s.finish,
@@ -131,11 +132,19 @@ export function PrintingScreen({ boothId, data, session, reset }: StepProps) {
         publicKey: key,
       });
       void updateOrder(boothId, order.id, { status: 'printing', jobId, error: null }).catch(() => undefined);
-      setPhase('printing');
-      const result = await followJob(boothId, jobId, (st, msg) => setProblem(st === 'error' ? msg || 'Printer needs attention' : null));
+      void uploaded.then(() => setPhase((p) => (p === 'sending' ? 'printing' : p)), () => undefined);
+      const result = await followJob(
+        boothId,
+        jobId,
+        (st, msg) => {
+          if (st !== 'queued') setPhase((p) => (p === 'sending' ? 'printing' : p));
+          setProblem(st === 'error' ? msg || 'Printer needs attention' : null);
+        },
+        { sheets, uploaded },
+      );
       if (result.status === 'done') {
         void updateOrder(boothId, order.id, { status: 'printed', error: null }).catch(() => undefined);
-        void consumePaper(boothId, order.copies).catch(() => undefined);
+        void consumePaper(boothId, sheets).catch(() => undefined);
         if (s.retentionMinutes === 0) await deletePrint(order.id).catch(() => undefined);
         else await markPrinted(order.id).catch(() => undefined);
         setPhase('done');

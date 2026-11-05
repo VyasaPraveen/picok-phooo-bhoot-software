@@ -28,7 +28,7 @@ export interface RenderRequest {
   /** One entry per slot; a missing/null entry draws a placeholder (used for thumbnails). */
   photos?: (CanvasImageSource | null)[];
   logo?: CanvasImageSource | null;
-  /** Optional alternative logo for light strip backgrounds (drawn as a rounded badge). */
+  /** Optional logo for light strip backgrounds (dark text). */
   logoOnLight?: CanvasImageSource | null;
   eventName?: string;
   eventDate?: string;
@@ -45,6 +45,7 @@ export interface RenderRequest {
 export async function renderTemplate(req: RenderRequest, scale = 1): Promise<HTMLCanvasElement> {
   await ensureFonts();
   const t = req.template;
+  if (t.fitFrom && t.fitFrom !== t.size) return renderFitted(req, scale);
   const tw = templateWidth(t),
     th = templateHeight(t);
   const w = Math.max(1, Math.round(tw * scale));
@@ -59,7 +60,7 @@ export async function renderTemplate(req: RenderRequest, scale = 1): Promise<HTM
   return canvas;
 }
 
-/** Two 2×6 strips side by side on one 4×6 sheet (1200×1800); the DNP 2-inch cut separates them. */
+/** Two 2×6 strips side by side on one 4×6 sheet (1200×1800); the printer's 2-inch cut separates them. */
 export function stripSheet(strip: HTMLCanvasElement): HTMLCanvasElement {
   const sheet = createCanvas(1200, 1800);
   const ctx = context2d(sheet);
@@ -155,6 +156,44 @@ function layer(ctx: Ctx, l: Record<string, unknown>, env: LayerEnv): void {
   ctx.globalAlpha = opacity;
   ctx.drawImage(off, 0, 0);
   ctx.restore();
+}
+
+/**
+ * A design drawn for another size (`fitFrom`), scaled to fit this size. The border left over is
+ * filled with the design's own edge colours: the outer 6% of each side, averaged across, so small
+ * marks and the photos never smear into the border.
+ */
+async function renderFitted(req: RenderRequest, scale: number): Promise<HTMLCanvasElement> {
+  const t = req.template;
+  const base: TemplateDef = { ...t, size: t.fitFrom!, fitFrom: undefined };
+  const tw = templateWidth(t),
+    th = templateHeight(t);
+  const k = Math.min(tw / templateWidth(base), th / templateHeight(base));
+  const inner = await renderTemplate({ ...req, template: base }, scale * k);
+  const w = Math.max(1, Math.round(tw * scale));
+  const h = Math.max(1, Math.round(th * scale));
+  const canvas = createCanvas(w, h);
+  const ctx = context2d(canvas);
+  const iw = inner.width,
+    ih = inner.height;
+  const dx = Math.round((w - iw) / 2),
+    dy = Math.round((h - ih) / 2);
+  const band = (sx: number, sy: number, sw: number, sh: number, alongX: boolean, x: number, y: number, bw: number, bh: number) => {
+    if (bw <= 0 || bh <= 0) return;
+    // Average the edge strip down to one pixel line, then stretch it over the border.
+    const line = createCanvas(alongX ? 1 : Math.max(1, Math.round(sw)), alongX ? Math.max(1, Math.round(sh)) : 1);
+    const lctx = context2d(line);
+    lctx.drawImage(inner, sx, sy, sw, sh, 0, 0, line.width, line.height);
+    ctx.drawImage(line, 0, 0, line.width, line.height, x, y, bw, bh);
+  };
+  const ex = Math.max(1, Math.round(iw * 0.06)),
+    ey = Math.max(1, Math.round(ih * 0.06));
+  band(0, 0, ex, ih, true, 0, dy, dx, ih);
+  band(iw - ex, 0, ex, ih, true, dx + iw, dy, w - dx - iw, ih);
+  band(0, 0, iw, ey, false, dx, 0, iw, dy);
+  band(0, ih - ey, iw, ey, false, dx, dy + ih, iw, h - dy - ih);
+  ctx.drawImage(inner, dx, dy);
+  return canvas;
 }
 
 // ---- photo slots ------------------------------------------------------------
@@ -280,13 +319,13 @@ function logoStrip(ctx: Ctx, r: RenderRequest): void {
   }
   const textColour = override !== null ? cssHex(contrastOn(override)) : cssHex(a.textColor ?? '#FFFFFF');
   const lightBg = bg !== null && luminance(parseColor(bg)) > 0.5;
-  const useBadge = lightBg && !!r.logoOnLight;
+  const useLight = lightBg && !!r.logoOnLight;
 
   const showEvent = r.showEvent ?? true;
   const name = showEvent ? (r.eventName ?? '').trim() : '';
   const date = showEvent ? (r.eventDate ?? '').trim() : '';
   const hasText = name.length > 0 || date.length > 0;
-  const logo = (useBadge ? r.logoOnLight : r.logo) ?? null;
+  const logo = (useLight ? r.logoOnLight : r.logo) ?? null;
   const logoSize = logo ? sourceSize(logo) : null;
   const hasLogo = logo !== null && logoSize !== null && logoSize[0] > 0 && logoSize[1] > 0;
   const pad = rect.h * 0.14;
@@ -324,7 +363,7 @@ function logoStrip(ctx: Ctx, r: RenderRequest): void {
     const total = lw + gapW + textW;
     let x = rect.x + (rect.w - total) / 2;
     if (hasLogo) {
-      drawImageFit(ctx, logo, { x, y: cy - lh / 2, w: lw, h: lh }, useBadge);
+      drawImageFit(ctx, logo, { x, y: cy - lh / 2, w: lw, h: lh });
       x += lw + gapW;
     }
     const textH = (p1?.height ?? 0) + (p2?.height ?? 0);
@@ -349,20 +388,15 @@ function logoStrip(ctx: Ctx, r: RenderRequest): void {
         lw = innerW;
         lh = (lw * logoSize[1]) / logoSize[0];
       }
-      drawImageFit(ctx, logo, { x: cx - lw / 2, y: y + (logoH - lh) / 2, w: lw, h: lh }, useBadge);
+      drawImageFit(ctx, logo, { x: cx - lw / 2, y: y + (logoH - lh) / 2, w: lw, h: lh });
       y += logoH + pad * 0.3;
     }
     if (p1) drawPara(p1, rect.x + pad, y);
   }
 }
 
-function drawImageFit(ctx: Ctx, img: CanvasImageSource, dst: Rect, badge: boolean): void {
+function drawImageFit(ctx: Ctx, img: CanvasImageSource, dst: Rect): void {
   ctx.save();
-  if (badge) {
-    ctx.beginPath();
-    rrectPath(ctx, dst.x, dst.y, dst.w, dst.h, Math.min(dst.w, dst.h) * 0.18);
-    ctx.clip();
-  }
   const [iw, ih] = sourceSize(img);
   drawImageHQ(ctx, img, 0, 0, iw, ih, dst.x, dst.y, dst.w, dst.h);
   ctx.restore();

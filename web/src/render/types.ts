@@ -19,6 +19,8 @@ export interface PrintSizeInfo {
   photoCounts: number[];
   /** A 2×6 strip is printed as a pair on one 4×6 sheet and cut by the printer. */
   isStrip: boolean;
+  /** Paper used per print, in units of the roll's small size (5×7 and 6×8 use twice the length). */
+  sheets: number;
 }
 
 export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
@@ -32,6 +34,7 @@ export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
     heightPx: 1800,
     photoCounts: [3, 4],
     isStrip: true,
+    sheets: 1,
   },
   '4x6': {
     key: '4x6',
@@ -43,6 +46,7 @@ export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
     heightPx: 1800,
     photoCounts: [1, 2, 3, 4],
     isStrip: false,
+    sheets: 1,
   },
   '3.5x5': {
     key: '3.5x5',
@@ -54,6 +58,7 @@ export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
     heightPx: 1500,
     photoCounts: [1, 2, 4],
     isStrip: false,
+    sheets: 1,
   },
   '5x7': {
     key: '5x7',
@@ -65,6 +70,7 @@ export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
     heightPx: 2100,
     photoCounts: [1, 2, 4],
     isStrip: false,
+    sheets: 2,
   },
   '6x8': {
     key: '6x8',
@@ -76,6 +82,7 @@ export const PRINT_SIZES: Record<PrintSizeKey, PrintSizeInfo> = {
     heightPx: 2400,
     photoCounts: [1, 2, 4],
     isStrip: false,
+    sheets: 2,
   },
 };
 
@@ -90,18 +97,26 @@ export type MediaRollKey = '4x6' | '3.5x5' | '5x7' | '6x8';
 export interface MediaRollInfo {
   key: MediaRollKey;
   label: string;
-  /** Prints per roll (DNP RX1HS media set = 2 rolls of this many prints). */
+  /** Prints per roll in the roll's small size (3.5×5 or 4×6); larger sizes use `sheets` each. */
   capacity: number;
   sizes: PrintSizeKey[];
+  /** Kept only so old settings still load; not offered any more. */
+  legacy?: boolean;
 }
 
-/** The media roll loaded in the printer. The DNP holds one roll at a time. */
+/**
+ * The paper roll loaded in the printer (Citizen JR10-M01, one roll at a time):
+ * the 5-inch roll prints 3.5×5 (700) or 5×7 (350), the 6-inch roll 4×6 (700) or 6×8 (350).
+ */
 export const MEDIA_ROLLS: Record<MediaRollKey, MediaRollInfo> = {
-  '4x6': { key: '4x6', label: '4×6 media (prints 4×6 and 2×6 strips)', capacity: 700, sizes: ['4x6', '2x6'] },
-  '3.5x5': { key: '3.5x5', label: '3.5×5 media', capacity: 700, sizes: ['3.5x5'] },
-  '5x7': { key: '5x7', label: '5×7 media', capacity: 400, sizes: ['5x7'] },
-  '6x8': { key: '6x8', label: '6×8 media', capacity: 350, sizes: ['6x8'] },
+  '4x6': { key: '4x6', label: '6-inch roll (4×6, 6×8, 2×6 strips)', capacity: 700, sizes: ['4x6', '2x6', '6x8'] },
+  '3.5x5': { key: '3.5x5', label: '5-inch roll (3.5×5, 5×7)', capacity: 700, sizes: ['3.5x5', '5x7'] },
+  '5x7': { key: '5x7', label: '5×7 media', capacity: 350, sizes: ['5x7'], legacy: true },
+  '6x8': { key: '6x8', label: '6×8 media', capacity: 350, sizes: ['6x8'], legacy: true },
 };
+
+/** Rolls offered in the dashboard. */
+export const ROLL_ORDER: MediaRollKey[] = ['4x6', '3.5x5'];
 
 /** A rectangle (template pixels at 300 dpi) where one customer photo is placed. */
 export interface SlotDef {
@@ -149,6 +164,12 @@ export interface TemplateDef {
   activeFrom?: string | null;
   activeTo?: string | null;
   packId?: string;
+  /** Client design slot 1–4 among the six AI designs (custom templates only). */
+  aiSlot?: number;
+  /** Drawn for this size and scaled to fit `size` with a matching border (e.g. a 4×6 design as 3.5×5). */
+  fitFrom?: PrintSizeKey;
+  /** Replaced or deleted while paid orders still used it: hidden from customers, kept for staff resume. */
+  retired?: boolean;
 }
 
 export function templateWidth(t: TemplateDef): number {
@@ -281,6 +302,8 @@ export function parseTemplate(json: unknown, packId = 'builtin'): TemplateDef | 
       packId,
       activeFrom: parseDate(j.activeFrom),
       activeTo: parseDate(j.activeTo),
+      ...(typeof j.aiSlot === 'number' && j.aiSlot >= 1 && j.aiSlot <= 4 ? { aiSlot: Math.round(j.aiSlot) } : {}),
+      ...(j.retired === true ? { retired: true } : {}),
     };
   } catch {
     return null;

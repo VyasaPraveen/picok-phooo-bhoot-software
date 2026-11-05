@@ -1,7 +1,7 @@
-import { ref, remove, set } from 'firebase/database';
+import { ref, update } from 'firebase/database';
 import { useEffect, useState } from 'react';
 import { MEDIA_ROLLS, PRINT_SIZES, SIZE_ORDER } from '../../render';
-import { assetDataUrl, forgetAsset } from '../../shared/booth';
+import { assetDataUrl, forgetAsset, PICOK_LOGO } from '../../shared/booth';
 import { db } from '../../shared/firebase';
 import { DEFAULT_CONSENT, DEFAULT_PRICES, encodePrices } from '../../shared/model';
 import { visibleFor } from '../../shared/templates';
@@ -9,11 +9,14 @@ import { clearThumbCache, TemplateThumb } from '../../shared/Thumb';
 import { Segmented, Toggle, useToast } from '../../shared/ui';
 import { CommitInput, imageFileToPng, Panel, Row, RupeeInput, saveSettings, Stepper, type SectionProps } from '../fields';
 
+type LogoField = 'logoAssetId' | 'logoLightAssetId';
+
 export function BrandingSection({ boothId, data }: SectionProps) {
   const toast = useToast();
   const s = data.settings;
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [lightUrl, setLightUrl] = useState<string | null>(null);
+  const [busy, setBusy] = useState<LogoField | null>(null);
   const size = MEDIA_ROLLS[s.loadedRoll].sizes[0];
   const sample = visibleFor(data.templates, s, size)[0];
 
@@ -21,66 +24,102 @@ export function BrandingSection({ boothId, data }: SectionProps) {
     if (!s.logoAssetId) return setLogoUrl(null);
     void assetDataUrl(boothId, s.logoAssetId).then(setLogoUrl);
   }, [boothId, s.logoAssetId]);
+  useEffect(() => {
+    if (!s.logoLightAssetId) return setLightUrl(null);
+    void assetDataUrl(boothId, s.logoLightAssetId).then(setLightUrl);
+  }, [boothId, s.logoLightAssetId]);
 
   const save = async (patch: Parameters<typeof saveSettings>[1]) => {
     await saveSettings(boothId, patch);
     clearThumbCache();
   };
 
-  const upload = async (file: File | undefined) => {
+  const upload = async (file: File | undefined, field: LogoField) => {
     if (!file) return;
-    setBusy(true);
+    setBusy(field);
     try {
       const png = await imageFileToPng(file, 1000);
-      const id = `logo-${Date.now()}`;
-      await set(ref(db, `booths/${boothId}/assets/${id}`), {
-        name: file.name.slice(0, 120),
-        mime: 'image/png',
-        data: png.data,
-        width: png.width,
-        height: png.height,
-        updatedAt: Date.now(),
+      const id = `${field === 'logoAssetId' ? 'logo' : 'logolight'}-${Date.now()}`;
+      const old = s[field];
+      // The logo, its setting and the old logo's removal are saved together or not at all.
+      await update(ref(db, `booths/${boothId}`), {
+        [`assets/${id}`]: { name: file.name.slice(0, 120), mime: png.mime, data: png.data, width: png.width, height: png.height, updatedAt: Date.now() },
+        [`settings/${field}`]: id,
+        ...(old ? { [`assets/${old}`]: null } : {}),
       });
-      const old = s.logoAssetId;
-      await save({ logoAssetId: id });
-      if (old) {
-        forgetAsset(boothId, old);
-        await remove(ref(db, `booths/${boothId}/assets/${old}`)).catch(() => undefined);
-      }
-      toast('Client logo updated. It now appears on every print.');
+      if (old) forgetAsset(boothId, old);
+      clearThumbCache();
+      toast(field === 'logoAssetId' ? 'Client logo updated. It now appears on every print.' : 'Light-background logo updated.');
     } catch (e) {
       toast((e as Error).message || 'Upload failed.', true);
     } finally {
-      setBusy(false);
+      setBusy(null);
     }
   };
 
   const clearLogo = async () => {
-    const old = s.logoAssetId;
-    await save({ logoAssetId: null });
-    if (old) await remove(ref(db, `booths/${boothId}/assets/${old}`)).catch(() => undefined);
+    const old = [s.logoAssetId, s.logoLightAssetId].filter((x): x is string => !!x);
+    try {
+      await update(ref(db, `booths/${boothId}`), {
+        'settings/logoAssetId': null,
+        'settings/logoLightAssetId': null,
+        ...Object.fromEntries(old.map((id) => [`assets/${id}`, null])),
+      });
+      old.forEach((id) => forgetAsset(boothId, id));
+      clearThumbCache();
+    } catch {
+      toast('Could not switch to the Picok logo. Check your connection.', true);
+    }
   };
+
+  const uploadButton = (field: LogoField, label: string) => (
+    <label className={`btn btn-primary btn-sm ${busy ? 'disabled' : ''}`}>
+      {busy === field ? 'Uploading…' : label}
+      <input
+        type="file"
+        accept="image/png,image/jpeg,image/webp"
+        className="visually-hidden"
+        disabled={!!busy}
+        onChange={(e) => {
+          void upload(e.target.files?.[0], field);
+          e.target.value = '';
+        }}
+      />
+    </label>
+  );
 
   return (
     <div className="grid-main-side">
       <div>
-        <Panel title="Client brand logo" subtitle="Printed at the bottom of every print. A transparent PNG works best.">
+        <Panel
+          title="Booth theme"
+          subtitle="Light or dark for this event: the booth screens, the standard print style (Classic White or Picok Midnight) and the logo version all follow it."
+        >
+          <Row label="Theme">
+            <Segmented
+              label="Booth theme"
+              value={s.theme}
+              options={[
+                { value: 'dark', label: '● Dark' },
+                { value: 'light', label: '○ Light' },
+              ]}
+              onChange={(v) => void save({ theme: v })}
+            />
+          </Row>
+        </Panel>
+        <Panel
+          title="Client brand logo"
+          subtitle="Printed at the bottom of every print. A transparent PNG works best. Add a dark-text version for light backgrounds so the logo stays visible in the light theme."
+        >
           <div className="logo-row">
-            <div className="logo-box">
-              <img src={logoUrl ?? '/brand/picok_logo_transparent.png'} alt="Current print logo" />
+            <div className="logo-box" title="On dark backgrounds">
+              <img src={logoUrl ?? PICOK_LOGO.dark} alt="Print logo on dark backgrounds" />
             </div>
-            <label className={`btn btn-primary btn-sm ${busy ? 'disabled' : ''}`}>
-              {busy ? 'Uploading…' : '⬆ Upload logo'}
-              <input
-                type="file"
-                accept="image/png,image/jpeg,image/webp"
-                className="visually-hidden"
-                disabled={busy} onChange={(e) => {
-                  void upload(e.target.files?.[0]);
-                  e.target.value = '';
-                }}
-              />
-            </label>
+            <div className="logo-box light" title="On light backgrounds">
+              <img src={s.logoAssetId ? (lightUrl ?? logoUrl ?? PICOK_LOGO.light) : PICOK_LOGO.light} alt="Print logo on light backgrounds" />
+            </div>
+            {uploadButton('logoAssetId', '⬆ Upload logo')}
+            {s.logoAssetId && uploadButton('logoLightAssetId', s.logoLightAssetId ? '⬆ Replace light version' : '⬆ Light-background version')}
             {s.logoAssetId && <button className="btn btn-ghost btn-sm" onClick={() => void clearLogo()}>Use Picok logo</button>}
           </div>
           <Row label="Logo strip colour" help="Follow each template, or force white / black for this client’s logo">

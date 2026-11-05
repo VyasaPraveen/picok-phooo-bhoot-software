@@ -1,8 +1,8 @@
 import { onAuthStateChanged, signInAnonymously } from 'firebase/auth';
 import { get, onValue, ref, remove, serverTimestamp, set } from 'firebase/database';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { ensureFonts } from '../render';
-import { useBoothData, useLogo } from '../shared/booth';
+import { pruneAssetCache, referencedAssets, screenLogo, useBoothData, useLogo, useSamplePhotos } from '../shared/booth';
 import { auth, db, serverNow } from '../shared/firebase';
 import { RenderEnvContext, type RenderEnv } from '../shared/Thumb';
 import { ToastProvider } from '../shared/ui';
@@ -51,14 +51,18 @@ export function KioskApp() {
   let body;
   if (fatal) body = <Message title="Booth setup needed" text={fatal} />;
   else if (!uid || device === undefined) body = <Splash />;
-  else if (!device || device.role !== 'kiosk') body = <Pairing uid={uid} />;
+  else if (!device || device.role !== 'kiosk') {
+    applyTheme('dark');
+    body = <Pairing uid={uid} />;
+  }
   else body = <BoothRoot boothId={device.boothId} />;
   return <ToastProvider>{body}</ToastProvider>;
 }
 
 function BoothRoot({ boothId }: { boothId: string }) {
   const data = useBoothData(boothId);
-  const logo = useLogo(boothId, data.settings.logoAssetId);
+  const logo = useLogo(boothId, data.settings.logoAssetId, data.settings.logoLightAssetId);
+  const samples = useSamplePhotos(boothId, data.settings.samplePhotoAssetIds);
   const [fontsReady, setFontsReady] = useState(false);
   useEffect(() => {
     void ensureFonts().finally(() => setFontsReady(true));
@@ -70,13 +74,50 @@ function BoothRoot({ boothId }: { boothId: string }) {
     }
   }, []);
   useEffect(() => watchLatePayments(boothId), [boothId]);
-  const env = useMemo<RenderEnv>(() => ({ boothId, settings: data.settings, logo }), [boothId, data.settings, logo]);
+  // Once everything has loaded, drop cached images the booth no longer uses (old logos, frames).
+  const latest = useRef(data);
+  latest.current = data;
+  useEffect(() => {
+    const t = setTimeout(() => {
+      if (latest.current.loaded) void pruneAssetCache(boothId, referencedAssets(latest.current.settings, latest.current.templates));
+    }, 60_000);
+    return () => clearTimeout(t);
+  }, [boothId]);
+  const env = useMemo<RenderEnv>(() => ({ boothId, settings: data.settings, logo, samples }), [boothId, data.settings, logo, samples]);
+  // The event's theme drives the booth screens (theme.css) as well as the prints. It is applied
+  // before the screens render (they pick the matching logo) and remembered for the next start-up.
+  const theme = data.settings.theme;
+  if (data.loaded) applyTheme(theme);
   if (!data.loaded || !fontsReady || !logo.logo) return <Splash />;
   return (
     <RenderEnvContext.Provider value={env}>
       <Flow boothId={boothId} data={data} />
     </RenderEnvContext.Provider>
   );
+}
+
+const THEME_KEY = 'picok.theme';
+
+/** Sets <html data-theme> (idempotent, so it may run during render) and remembers it. */
+function applyTheme(theme: 'dark' | 'light') {
+  const root = document.documentElement;
+  if (root.dataset.theme === theme) return;
+  root.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#f4f5fa' : '#07070b');
+  try {
+    localStorage.setItem(THEME_KEY, theme);
+  } catch {
+    // Storage blocked: the booth starts dark until its settings load.
+  }
+}
+
+/** The theme of the last event, so the splash screen does not flash dark on a light booth. */
+export function restoreTheme() {
+  try {
+    if (localStorage.getItem(THEME_KEY) === 'light') document.documentElement.dataset.theme = 'light';
+  } catch {
+    // Default dark.
+  }
 }
 
 const CODE_KEY = 'picok.pairingCode';
@@ -136,7 +177,7 @@ function Pairing({ uid }: { uid: string }) {
   const admin = `${location.origin}/admin`;
   return (
     <div className="center-screen">
-      <img src="/brand/picok_logo_transparent.png" alt="Picok" className="pair-logo" />
+      <img src={screenLogo()} alt="Picok" className="pair-logo" />
       <h1>Connect this tablet to your booth</h1>
       {error ? (
         <p className="error-text">{error}</p>
@@ -160,7 +201,7 @@ function Pairing({ uid }: { uid: string }) {
 function Splash() {
   return (
     <div className="center-screen">
-      <img src="/brand/picok_logo_transparent.png" alt="Picok" className="pair-logo" />
+      <img src={screenLogo()} alt="Picok" className="pair-logo" />
       <div className="spinner" aria-label="Loading" />
     </div>
   );
@@ -169,7 +210,7 @@ function Splash() {
 function Message({ title, text }: { title: string; text: string }) {
   return (
     <div className="center-screen">
-      <img src="/brand/picok_logo_transparent.png" alt="Picok" className="pair-logo" />
+      <img src={screenLogo()} alt="Picok" className="pair-logo" />
       <h1>{title}</h1>
       <p className="dim" style={{ maxWidth: 640, textAlign: 'center' }}>{text}</p>
       <button className="btn btn-primary" onClick={() => location.reload()}>Try again</button>

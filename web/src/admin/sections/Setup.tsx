@@ -1,9 +1,9 @@
 import { onValue, push, ref, update } from 'firebase/database';
 import { useEffect, useState, type FormEvent } from 'react';
-import { MEDIA_ROLLS, PRINT_SIZES, type MediaRollKey } from '../../render';
+import { MEDIA_ROLLS, PRINT_SIZES, ROLL_ORDER, type MediaRollKey } from '../../render';
 import { DEFAULT_ADMIN_PIN, DEFAULT_OPERATOR_PIN, hashPin } from '../../shared/crypto';
 import { db, serverNow } from '../../shared/firebase';
-import { bridgeOnline } from '../../shared/model';
+import { bridgeOnline, type BoothSettings } from '../../shared/model';
 import { clearThumbCache } from '../../shared/Thumb';
 import { Segmented, Toggle, useToast } from '../../shared/ui';
 import { Panel, Row, saveSettings, Stepper, type SectionProps } from '../fields';
@@ -78,6 +78,17 @@ export function PaperSection({ boothId, data }: SectionProps) {
           <span className="dim">prints left of {roll.capacity}</span>
         </div>
         {paper <= s.lowPaperThreshold && <p className="warn">Paper is running low — keep a new media set ready.</p>}
+        {(data.state?.loadedRoll === '5x7' || data.state?.loadedRoll === '6x8') && (
+          <p className="warn">
+            The counter was set for the old {data.state.loadedRoll} media. 5×7 and 6×8 now use two prints' worth of the roll each.{' '}
+            <button
+              className="btn btn-soft btn-sm"
+              onClick={() => void setState(boothId, { printsRemaining: roll.capacity, loadedRoll: s.loadedRoll }).then(() => toast(`Counter reset to a full ${roll.label}.`))}
+            >
+              Reset to a full {roll.label}
+            </button>
+          </p>
+        )}
         <Row label="Adjust count">
           <Stepper value={paper} min={0} max={2000} onChange={(v) => void setState(boothId, { printsRemaining: v })} />
         </Row>
@@ -85,11 +96,14 @@ export function PaperSection({ boothId, data }: SectionProps) {
           <Stepper value={s.lowPaperThreshold} min={0} max={300} step={10} onChange={(v) => void saveSettings(boothId, { lowPaperThreshold: v })} />
         </Row>
       </Panel>
-      <Panel title="Loaded media" subtitle="The DNP holds one roll at a time. Customers only see the sizes this roll can print.">
+      <Panel
+        title="Loaded media"
+        subtitle="The Citizen printer holds one roll at a time: the 5-inch roll prints 3.5×5 and 5×7, the 6-inch roll 4×6, 6×8 and 2×6 strips. Customers only see the sizes this roll can print. 5×7 and 6×8 use two prints' worth of paper."
+      >
         <Row label="Roll in the printer">
           <select value={s.loadedRoll} onChange={(e) => void changeRoll(e.target.value as MediaRollKey)}>
-            {Object.values(MEDIA_ROLLS).map((r) => (
-              <option key={r.key} value={r.key}>{r.label}</option>
+            {ROLL_ORDER.map((k) => (
+              <option key={k} value={k}>{MEDIA_ROLLS[k].label}</option>
             ))}
           </select>
         </Row>
@@ -104,7 +118,7 @@ export function PaperSection({ boothId, data }: SectionProps) {
             />
           </Row>
         ))}
-        <Row label="Print finish" help="The Print Bridge applies the matching DNP driver profile">
+        <Row label="Print finish" help="The Print Bridge applies the matching printer driver profile">
           <Segmented
             label="Print finish"
             value={s.finish}
@@ -127,11 +141,19 @@ export function BoothSettingsSection({ boothId, data }: SectionProps) {
         <Row label="Payments" help="Demo: QR is simulated, no money is taken. Live: Razorpay UPI through the Print Bridge PC.">
           <Segmented label="Payment mode" value={s.paymentMode} options={[{ value: 'demo', label: 'Demo' }, { value: 'bridge', label: 'Live (Razorpay)' }]} onChange={(v) => save({ paymentMode: v })} />
         </Row>
-        <Row label="Printing" help="Demo: the print is shown and can be downloaded. Live: sent encrypted to the DNP printer.">
-          <Segmented label="Print mode" value={s.printMode} options={[{ value: 'demo', label: 'Demo' }, { value: 'bridge', label: 'Live (DNP printer)' }]} onChange={(v) => save({ printMode: v })} />
+        <Row label="Printing" help="Demo: the print is shown and can be downloaded. Live: sent encrypted to the Citizen printer through the Print Bridge PC.">
+          <Segmented label="Print mode" value={s.printMode} options={[{ value: 'demo', label: 'Demo' }, { value: 'bridge', label: 'Live (printer)' }]} onChange={(v) => save({ printMode: v })} />
         </Row>
       </Panel>
-      <Panel title="Camera">
+      <Panel title="Camera" subtitle="The Canon EOS R50 connects to the tablet with a USB-C cable in its streaming (webcam) mode. Staff can also pick a camera on the tablet (staff menu → Camera).">
+        <Row label="Camera" help="Auto uses the R50 when it is connected and falls back to the tablet camera so the booth keeps working">
+          <select value={s.cameraSource} onChange={(e) => save({ cameraSource: e.target.value as BoothSettings['cameraSource'] })}>
+            <option value="auto">Auto: Canon R50 (USB), else tablet front camera</option>
+            <option value="usb">Canon R50 (USB) only</option>
+            <option value="front">Tablet front camera</option>
+            <option value="back">Tablet back camera</option>
+          </select>
+        </Row>
         <Row label="Countdown"><Stepper value={s.countdownSeconds} min={1} max={10} suffix=" s" onChange={(v) => save({ countdownSeconds: v })} /></Row>
         <Row label="Retakes allowed per photo"><Stepper value={s.retakesAllowed} min={0} max={5} onChange={(v) => save({ retakesAllowed: v })} /></Row>
         <Row label="Mirror photos on print" help="On = prints look like the on-screen preview; Off = true orientation (text reads correctly)">

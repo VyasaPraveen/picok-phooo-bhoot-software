@@ -1,6 +1,7 @@
 import QRCode from 'qrcode';
 import { useEffect, useRef, useState } from 'react';
-import { PRINT_SIZES } from '../../render';
+import { MEDIA_ROLLS, PRINT_SIZES } from '../../render';
+import { serverNow } from '../../shared/firebase';
 import { DEFAULT_ADMIN_PIN, DEFAULT_OPERATOR_PIN, hashPin } from '../../shared/crypto';
 import { bridgeOnline, printerReady, rupees, type Order, type PaymentMethod, type PaymentRequest } from '../../shared/model';
 import { PinPad, useToast } from '../../shared/ui';
@@ -49,7 +50,8 @@ export function PaymentScreen({ boothId, data, session, go, reset }: StepProps) 
   const unwatch = useRef<(() => void) | null>(null);
   const viewKind = useRef(view.kind);
   viewKind.current = view.kind;
-  const bridgeMode = s.paymentMode === 'bridge';
+  // Fixed for this visit: an admin switching modes mid-payment must not skip closing a live QR.
+  const bridgeMode = useRef(s.paymentMode === 'bridge').current;
   const description = `Picok Booth ${PRINT_SIZES[session.size!].shortLabel} ${session.template!.name} ×${session.copies}`;
 
   useEffect(() => {
@@ -152,6 +154,13 @@ export function PaymentScreen({ boothId, data, session, go, reset }: StepProps) 
     (async () => {
       const amount = sessionTotal(session, data);
 
+      // Never take money for a size the loaded paper roll cannot print.
+      const roll = MEDIA_ROLLS[s.loadedRoll];
+      if (!roll.sizes.includes(session.size!) || s.disabledSizes.includes(session.size!)) {
+        setView({ kind: 'problem', message: 'Sorry, this print size is not available right now. Please choose another size.', allowCash: false });
+        return;
+      }
+
       // Never take money if the booth cannot print.
       if (s.printMode === 'bridge') {
         const paper = data.state?.printsRemaining ?? 0;
@@ -159,7 +168,7 @@ export function PaymentScreen({ boothId, data, session, go, reset }: StepProps) 
           ? 'The print PC is offline.'
           : !printerReady(data.bridge)
             ? `Printer: ${data.bridge?.printer?.message || data.bridge?.printer?.state || 'not ready'}`
-            : paper < session.copies
+            : paper < session.copies * PRINT_SIZES[session.size!].sheets
               ? 'The printer is out of paper.'
               : null;
         if (problem) {
@@ -218,8 +227,9 @@ export function PaymentScreen({ boothId, data, session, go, reset }: StepProps) 
         setView({ kind: 'problem', message: 'UPI payment is not available right now.', allowCash: true });
         return;
       }
-      await withTimeout(requestPayment(boothId, o.id, amount, description), 10_000, 'offline');
+      // Marked before the write: if it only syncs later, leaving still closes that QR.
       requested.current = true;
+      await withTimeout(requestPayment(boothId, o.id, amount, description), 10_000, 'offline');
       if (!mounted.current) return;
       unwatch.current = watchPayment(boothId, o.id, (p) => {
         if (!p || finished.current || closing.current) return;
@@ -227,7 +237,8 @@ export function PaymentScreen({ boothId, data, session, go, reset }: StepProps) 
           const show = async () => {
             const qrUrl = p.upiString ? await QRCode.toDataURL(p.upiString, { width: 760, margin: 1 }) : `data:image/png;base64,${p.imagePng}`;
             if (finished.current || closing.current) return;
-            setDeadline(p.expiresAt ? Math.min(p.expiresAt, limit) : limit);
+            // expiresAt is on the server's clock; convert it to this tablet's clock.
+            setDeadline(p.expiresAt ? Math.min(Date.now() + (p.expiresAt - serverNow()), limit) : limit);
             setView({ kind: 'qr', qrUrl, amount: p.amount, demo: false });
           };
           void show();

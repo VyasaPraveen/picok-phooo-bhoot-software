@@ -7,15 +7,17 @@ using static Epixs.PrintBridge.Printing.NativeMethods;
 namespace Epixs.PrintBridge.Printing;
 
 /// <summary>
-/// Captures and restores the driver's private DEVMODE. The DNP driver keeps settings such as the
-/// 2-inch cut and the gloss/matte overcoat in the private part of the DEVMODE, which the managed
-/// printing API cannot set directly.
+/// Captures and restores the driver's private DEVMODE. Photo printer drivers (Citizen, DNP and others)
+/// keep settings such as the 2-inch cut and the gloss/matte overcoat in the private part of the DEVMODE,
+/// which the managed printing API cannot set directly.
 /// </summary>
 public static class DevModeHelper
 {
     // DEVMODEW field offsets.
     private const int OffsetDmSize = 68;
     private const int OffsetDmDriverExtra = 70;
+    private const int OffsetDmCopies = 86;
+    private const int OffsetDmCollate = 100;
     private const int OffsetDmFormName = 102;
     private const int CchDeviceName = 32;
 
@@ -75,10 +77,14 @@ public static class DevModeHelper
         }
     }
 
-    /// <summary>Applies a captured DEVMODE to the printer settings and the page settings used for printing.</summary>
+    /// <summary>
+    /// Applies a captured DEVMODE to the printer settings and the page settings used for printing.
+    /// Copies are always forced to 1 (uncollated): the bridge spools one page per copy, so copies saved
+    /// in the driver dialog would multiply the prints.
+    /// </summary>
     public static void Apply(PrinterSettings settings, PageSettings page, byte[] devMode)
     {
-        var hDevMode = ToHGlobal(devMode);
+        var hDevMode = ToHGlobal(WithSingleCopy(devMode));
         try
         {
             settings.SetHdevmode(hDevMode);
@@ -88,7 +94,24 @@ public static class DevModeHelper
         {
             GlobalFree(hDevMode);
         }
+        settings.Copies = 1;
+        settings.Collate = false;
     }
+
+    /// <summary>A copy of the DEVMODE with dmCopies = 1 and dmCollate = DMCOLLATE_FALSE.</summary>
+    public static byte[] WithSingleCopy(byte[] devMode)
+    {
+        var copy = (byte[])devMode.Clone();
+        if (copy.Length >= OffsetDmCopies + 2)
+            BitConverter.TryWriteBytes(copy.AsSpan(OffsetDmCopies, 2), (short)1);
+        if (copy.Length >= OffsetDmCollate + 2)
+            BitConverter.TryWriteBytes(copy.AsSpan(OffsetDmCollate, 2), (short)0);
+        return copy;
+    }
+
+    /// <summary>The dmCopies field of a DEVMODE, or null if it is too short.</summary>
+    public static int? ReadCopies(byte[] devMode) =>
+        devMode.Length >= OffsetDmCopies + 2 ? BitConverter.ToInt16(devMode, OffsetDmCopies) : null;
 
     /// <summary>The form (paper) name stored in a DEVMODE, for display.</summary>
     public static string? ReadFormName(byte[] devMode)
