@@ -1,0 +1,178 @@
+{
+  "id": "festival_holi_2027",
+  "name": "Holi 2027",
+  "version": 1,
+  "activeFrom": "2027-03-15",
+  "activeTo": "2027-03-24",
+  "fonts": [],
+  "templates": [
+    {
+      "id": "holi27_colours_1",
+      "name": "Happy Holi",
+      "category": "festival",
+      "description": "Bursts of gulal colour on white with a \"Happy Holi\" title.",
+      "size": "4x6",
+      "filter": "vivid",
+      "background": {
+        "color": "#FFFDF8"
+      },
+      "layers": [
+        {
+          "type": "circle",
+          "cx": 80,
+          "cy": 120,
+          "r": 230,
+          "color": "#CCFF3D9A",
+          "glow": 81
+        },
+        {
+          "type": "circle",
+          "cx": 1130,
+          "cy": 90,
+          "r": 210,
+          "color": "#CCFFD21F",
+          "glow": 74
+        },
+        {
+          "type": "circle",
+          "cx": 1150,
+          "cy": 700,
+          "r": 200,
+          "color": "#B322C55E",
+          "glow": 70
+        },
+        {
+          "type": "circle",
+          "cx": 40,
+          "cy": 860,
+          "r": 220,
+          "color": "#B319D3E6",
+          "glow": 77
+        },
+        {
+          "type": "circle",
+          "cx": 120,
+          "cy": 1480,
+          "r": 240,
+          "color": "#CCFF8A1F",
+          "glow": 84
+        },
+        {
+          "type": "circle",
+          "cx": 1110,
+          "cy": 1440,
+          "r": 250,
+          "color": "#B38B3DFF",
+          "glow": 88
+        },
+        {
+          "type": "circle",
+          "cx": 600,
+          "cy": 1600,
+          "r": 180,
+          "color": "#99FF3D9A",
+          "glow": 63
+        },
+        {
+          "type": "dots",
+          "x": 0,
+          "y": 0,
+          "w": 1200,
+          "h": 1600,
+          "spacing": 34,
+          "rMax": 6,
+          "rMin": 0,
+          "color": "#66FF3D9A",
+          "direction": "edges"
+        },
+        {
+          "type": "text",
+          "text": "Happy Holi",
+          "font": "Shrikhand",
+          "size": 150,
+          "color": "#FF3D9A",
+          "x": 60,
+          "y": 24,
+          "w": 1080,
+          "stroke": {
+            "color": "#FFFFFF",
+            "width": 12
+          },
+          "shadow": {
+            "color": "#8B3DFF",
+            "dx": 7,
+            "dy": 7
+          }
+        },
+        {
+          "type": "text",
+          "text": "{event}",
+          "fallback": "Festival of colours",
+          "font": "Poppins",
+          "weight": 700,
+          "size": 40,
+          "color": "#6D28D9",
+          "letterSpacing": 6,
+          "uppercase": true,
+          "x": 100,
+          "y": 214,
+          "w": 1000
+        },
+        {
+          "type": "circle",
+          "z": "above",
+          "cx": 130,
+          "cy": 330,
+          "r": 70,
+          "color": "#99FFD21F",
+          "glow": 25
+        },
+        {
+          "type": "circle",
+          "z": "above",
+          "cx": 1080,
+          "cy": 1250,
+          "r": 80,
+          "color": "#9922C55E",
+          "glow": 28
+        },
+        {
+          "type": "text",
+          "text": "Bura na mano, Holi hai!",
+          "font": "Pacifico",
+          "size": 60,
+          "color": "#FF8A1F",
+          "x": 60,
+          "y": 1462,
+          "w": 1080,
+          "stroke": {
+            "color": "#FFFFFF",
+            "width": 8
+          }
+        }
+      ],
+      "slots": [
+        {
+          "x": 95,
+          "y": 290,
+          "w": 1010,
+          "h": 1150,
+          "radius": 30,
+          "rotation": -1,
+          "borderWidth": 14,
+          "shadow": true,
+          "borderColor": "#FFFFFF"
+        }
+      ],
+      "logo": {
+        "x": 0,
+        "y": 1600,
+        "w": 1200,
+        "h": 200,
+        "bg": "#6D28D9",
+        "textColor": "#FFFFFF",
+        "font": "Poppins"
+      }
+    }
+  ]
+}

@@ -61,9 +61,15 @@ keys. The contract is in [CLOUD_API.md](CLOUD_API.md).
   - The booth screens, the standard print style and the logo version all follow it.
   - For a client logo, also upload its dark-text version for light backgrounds.
 - **Six AI designs** (**Templates**):
-  1. Retro: choose one. 2×6 strips always use Vintage Film Strip.
-  2. Festival: switches by date automatically.
-  3. to 6. Upload the client's four designs.
+  1. Retro: choose one. The client chose Bollywood Retro Poster. 2×6 strips always use Vintage Film Strip.
+  2. Festival: switches by date automatically (Diwali, Sankranti, Holi). Between festivals the year-round
+     Festival Special design is shown.
+  3. to 6. The client's poster designs: Royal King, Be Yourself · Anime, Movie Poster, Together Forever.
+     - These are poster frames around the real photo. The customer's face and clothes are not changed by AI.
+     - For a new booth, load them with
+       `firebase database:update /booths/<boothId>/customTemplates web/seed/client_ai_designs.json`.
+     - To change them, edit and run `node web/seed/ai-designs.mjs`. It also writes the festival packs.
+     - Each slot can still be replaced with an uploaded PNG design.
   - Under **Sample photos for previews**, upload up to 4 sample photos. They replace the silhouettes in the
     design previews, for example the Film strip.
 - **Paper (Citizen JR10-M01):** in **Paper & printer → Loaded media**, choose the roll that is in the printer.

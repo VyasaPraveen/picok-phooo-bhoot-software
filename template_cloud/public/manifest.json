@@ -1,8 +1,10 @@
 {
-  "updatedAt": "2026-10-12",
+  "updatedAt": "2026-11-23",
   "packs": [
     { "id": "festival_diwali_2026", "version": 1, "url": "packs/festival_diwali_2026/pack.json" },
-    { "id": "festival_sankranti_2027", "version": 1, "url": "packs/festival_sankranti_2027/pack.json" }
+    { "id": "festival_sankranti_2027", "version": 1, "url": "packs/festival_sankranti_2027/pack.json" },
+    { "id": "festival_holi_2027", "version": 1, "url": "packs/festival_holi_2027/pack.json" },
+    { "id": "festival_special", "version": 1, "url": "packs/festival_special/pack.json" }
   ],
   "settings": {
     "version": 0
